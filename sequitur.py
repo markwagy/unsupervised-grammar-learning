@@ -72,7 +72,7 @@ class Sequitur:
     def __init__(self):
         self.digram_index = dict()
         # start off rule structure with the start rule
-        self.rule_structure = Sequitur.construct_start_rule()
+        self.start_rule = Sequitur.construct_start_rule()
 
     @staticmethod
     def construct_start_rule():
@@ -85,7 +85,7 @@ class Sequitur:
         return "Sequitur"
 
     def print_grammar_string(self):
-        rules = Sequitur.get_rules(self.rule_structure)
+        rules = Sequitur.get_rules(self.start_rule)
         s = '\n'.join([Sequitur.rule_string(r) for r in rules])
         print(s)
 
@@ -244,16 +244,16 @@ class Sequitur:
         return self.get_digram_key(digram) in self.digram_index.keys()
 
     def start_rule_empty(self):
-        return self.rule_structure.get_next().get_next() is None
+        return self.start_rule.get_next().get_next() is None
 
     def append_to_start_rule(self, new_node):
         if self.start_rule_empty():
-            guard_node = self.rule_structure.get_next()
+            guard_node = self.start_rule.get_next()
             guard_node.set_next(new_node)
             new_node.set_prev(guard_node)
             new_node.set_next(guard_node)
         else:
-            end_node = Sequitur.get_rule_end_node(self.rule_structure)
+            end_node = Sequitur.get_rule_end_node(self.start_rule)
             guard_node = end_node.get_next()
             end_node.set_next(new_node)
             new_node.set_prev(end_node)
