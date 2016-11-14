@@ -84,12 +84,12 @@ class Sequitur:
     def construct_start_rule():
         rule_node = Node(Sequitur.START_SYMBOL, is_terminal=False)
         guard_node = Sequitur.create_guard_node(rule_node)
-        Sequitur.make_link(rule_node, guard_node)
-        #rule_node.set_next(guard_node)
+        rule_node.set_next(guard_node)
+        guard_node.set_prev(rule_node)
         return rule_node
 
     def __str__(self):
-        return "Sequitur String Here"
+        return " ".join(["%s" % str(s) for s in self.digram_index])
 
     def print_grammar_string(self):
         rules = Sequitur.get_rules(self.start_rule)
@@ -158,8 +158,9 @@ class Sequitur:
         rule_id = Sequitur.get_uid()
         rule_node = Node(rule_id, is_terminal=False)
         guard_node = self.create_guard_node(rule_node)
-        Sequitur.make_link(rule_node, guard_node)
-        return rule_node
+        rule_node.set_next(guard_node)
+        guard_node.set_prev(rule_node)
+        return rule_node, guard_node
 
     @staticmethod
     def is_guard_node(node: Node) -> bool:
@@ -185,25 +186,6 @@ class Sequitur:
         self.digram_index[self.get_digram_key(digram)] = ref_node
 
     @staticmethod
-    def make_link(prev_node: Node, next_node: Node):
-        prev_node.set_next(next_node)
-        # a guard node should maintain the rule head node as its previous node
-        if not Sequitur.is_guard_node(next_node):
-            next_node.set_prev(prev_node)
-
-    def create_new_rule(self, index_node: Node) -> Node:
-        index_digram = Digram(index_node, index_node.get_next())
-        rule_node = self.construct_rule_head()
-        guard_node = Sequitur.create_guard_node(rule_node)
-        Sequitur.make_link(rule_node, guard_node)
-        self.replace_digram_with_rule_symlink(rule_node, index_digram)
-        # link new rule to digram
-        Sequitur.make_link(guard_node, index_digram.le)
-        # create 'loop-around' from end of rule to guard
-        index_digram.ri.set_next(rule_node.get_next())
-        return rule_node
-
-    @staticmethod
     def get_rule_rhs_data(rule_node: Node):
         curr = Sequitur.get_rule_rhs(rule_node)
         vals = []
@@ -211,6 +193,13 @@ class Sequitur:
             vals.append(curr.get_data())
             curr = curr.get_next()
         return vals
+
+    @staticmethod
+    def index_node_is_rule(index_node):
+        if (not index_node.is_terminal()) and Sequitur.is_guard_node(index_node.get_next()):
+            return True
+        else:
+            return False
 
     @staticmethod
     def rule_exists_for_digram(rule_ref_node: Node, digram: Digram) -> bool:
@@ -249,24 +238,36 @@ class Sequitur:
         rule_node_symlink = Node.get_symlink(rule_node)
         prev_node = digram.le.get_prev()  # save prev node in the original  rule
         next_node = digram.ri.get_next()  # save next node in the original rule
+        new_digram_le = Digram(prev_node, rule_node_symlink)
         # link rule symlink in to previous and next nodes
-        Sequitur.make_link(prev_node, rule_node_symlink)
-        self.add_digram_to_index(Digram(prev_node, rule_node_symlink))
+        self.make_link(new_digram_le)
         self.remove_from_index(Digram(prev_node, digram.le))  # break old link in index hash
-        Sequitur.make_link(rule_node_symlink, next_node)
-        self.add_digram_to_index(Digram(rule_node_symlink, next_node))
+        new_digram_ri = Digram(rule_node_symlink, next_node)
+        self.make_link(new_digram_ri)
         self.remove_from_index(Digram(digram.ri, next_node))  # break old link in index table
         # now place digram in rule
         self.update_index(digram, rule_node)
+        # return this symlink for posterity
+        return rule_node_symlink
 
-    @staticmethod
-    def index_node_is_rule(index_node):
-        if (not index_node.is_terminal()) and Sequitur.is_guard_node(index_node.get_next()):
-            return True
-        else:
-            return False
+    def create_new_rule(self, index_node: Node) -> Node:
+        index_digram = Digram(index_node, index_node.get_next())
+        rule_node, guard_node = self.construct_rule_head()
+        self.replace_digram_with_rule_symlink(rule_node, index_digram)
+        # link new rule to digram
+        guard_node.set_next(index_digram.le)
+        index_digram.le.set_prev(guard_node)
+        # create 'loop-around' from end of rule to guard
+        index_digram.ri.set_next(rule_node.get_next())
+        return rule_node
 
-    def consume_digram(self, digram: Digram):
+    def make_link(self, digram: Digram):
+        # keep track of what is considered the 'current node' to return for linking to ensuing nodes
+        curr_node = digram.ri
+        digram.le.set_next(digram.ri)
+        # a guard node should maintain the rule head node as its previous node
+        if not Sequitur.is_guard_node(digram.ri):
+            digram.ri.set_prev(digram.le)
         if not self.digram_exists(digram):
             # add digram to index
             self.add_digram_to_index(digram)
@@ -278,7 +279,10 @@ class Sequitur:
                 rule_node = self.create_new_rule(index_node)
             else:
                 rule_node = index_node
-            self.replace_digram_with_rule_symlink(rule_node, digram)
+            rule_node_symlink = self.replace_digram_with_rule_symlink(rule_node, digram)
+            # we've changed what is the 'current node' because we've replaced it with a rule symlink
+            curr_node = rule_node_symlink
+        return curr_node
 
     def consume_sequence(self, seq_vals: list):
         left_node = Node(seq_vals[0], is_terminal=True)
@@ -287,18 +291,18 @@ class Sequitur:
             right_node = Node(seq_vals[i], is_terminal=True)
             self.append_to_start_rule(right_node)
             digram = Digram(left_node, right_node)
-            self.consume_digram(digram)
+            left_node = self.make_link(digram)
             self.print_grammar_string()
-            left_node = right_node
+            #left_node = right_node
 
     @staticmethod
     def run(seq: list):
         s = Sequitur()
         s.consume_sequence(seq)
-        s.print_grammar_string()
+        #s.print_grammar_string()
 
 
 if __name__ == '__main__':
     #seq = list('abcdbc')
-    seq = list('ababab')
+    seq = list('abcdabce')
     Sequitur.run(seq)
