@@ -104,7 +104,7 @@ class Sequitur:
     def print_grammar_string(self):
         rules = Sequitur.get_rules(self.start_rule)
         s = '\n'.join([Sequitur.rule_string(r) for r in rules])
-        print(s)
+        print("----GRAMMAR----\n%s\n---------------\n" % s)
 
     @staticmethod
     def rule_string(rule_head_node: Node) -> str:
@@ -269,13 +269,20 @@ class Sequitur:
         # now place digram in rule
         self.update_index(digram, rule_node)
 
+    @staticmethod
+    def index_node_is_rule(index_node):
+        if (not index_node.is_terminal()) and Sequitur.is_guard_node(index_node.get_next()):
+            return True
+        else:
+            return False
+
     def consume_digram(self, digram: Digram):
         if not self.digram_exists(digram):
             # add digram to index
             self.add_digram_to_index(digram)
         else:
             index_node = self.digram_index[self.get_digram_key(digram)].ref_node
-            if index_node.is_terminal():
+            if not Sequitur.index_node_is_rule(index_node):
                 # the index node points to a previous location in the start rule and not to a digram rule,
                 # so create one. and in so doing, replace the previous instance with it
                 rule_node = self.create_new_rule(index_node)
@@ -291,6 +298,7 @@ class Sequitur:
             self.append_to_start_rule(right_node)
             digram = Digram(left_node, right_node)
             self.consume_digram(digram)
+            self.print_grammar_string()
             left_node = right_node
 
     @staticmethod
