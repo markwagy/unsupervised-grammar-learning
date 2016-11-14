@@ -45,16 +45,6 @@ class Node:
         return self._is_terminal
 
 
-class IndexInfo:
-
-    def __init__(self, ref_node, count=0):
-        self.count = count
-        self.ref_node = ref_node
-
-    def __str__(self):
-        return " => %s" % str(self.ref_node)
-
-
 class Digram:
 
     def __init__(self, left, right):
@@ -110,7 +100,7 @@ class Sequitur:
     def rule_string(rule_head_node: Node) -> str:
         s = rule_head_node.get_data()
         s += " -> "
-        # skip gaurd node
+        # skip guard node
         next_node = Sequitur.get_rule_rhs(rule_head_node)
         while not Sequitur.is_guard_node(next_node):
             s += "%s " % next_node.get_data()
@@ -158,7 +148,7 @@ class Sequitur:
             return
         digram_key = self.get_digram_key(digram)
         ref_node = digram.le
-        self.digram_index[digram_key] = IndexInfo(ref_node)
+        self.digram_index[digram_key] = ref_node
 
     @staticmethod
     def create_guard_node(rule_node: Node) -> Node:
@@ -192,7 +182,7 @@ class Sequitur:
     def update_index(self, digram: Digram, ref_node):
         if digram.contains_guard_node():
             return
-        self.digram_index[self.get_digram_key(digram)].ref_node = ref_node
+        self.digram_index[self.get_digram_key(digram)] = ref_node
 
     @staticmethod
     def make_link(prev_node: Node, next_node: Node):
@@ -281,7 +271,7 @@ class Sequitur:
             # add digram to index
             self.add_digram_to_index(digram)
         else:
-            index_node = self.digram_index[self.get_digram_key(digram)].ref_node
+            index_node = self.digram_index[self.get_digram_key(digram)]
             if not Sequitur.index_node_is_rule(index_node):
                 # the index node points to a previous location in the start rule and not to a digram rule,
                 # so create one. and in so doing, replace the previous instance with it
@@ -310,5 +300,5 @@ class Sequitur:
 
 if __name__ == '__main__':
     #seq = list('abcdbc')
-    seq = list('abcabcdbce')
+    seq = list('ababab')
     Sequitur.run(seq)
