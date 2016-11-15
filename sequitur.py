@@ -256,6 +256,8 @@ class Sequitur:
         rule_node_symlink = Node.get_symlink(rule_node)
         prev_node = digram.le.get_prev()  # save prev node in the original  rule
         next_node = digram.ri.get_next()  # save next node in the original rule
+        rule_node_symlink.set_next(next_node)
+        rule_node_symlink.set_prev(prev_node)
         new_digram_le = Digram(prev_node, rule_node_symlink)
         # link rule symlink in to previous and next nodes
         self.make_link(new_digram_le)
@@ -326,6 +328,6 @@ class Sequitur:
 
 if __name__ == '__main__':
     #seq = list('abcdbc')
-    seq = list('abababab')
+    seq = list('ababababab')
     Sequitur.run(seq)
     print("done")
