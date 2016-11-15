@@ -1,8 +1,9 @@
-import typing
 import string
 
 
 class Node:
+
+    id = 0
 
     def __init__(self, data, prevnode=None, nextnode=None, is_terminal=False):
         self._data = data
@@ -10,9 +11,21 @@ class Node:
         self._prev = prevnode
         self._is_terminal = is_terminal
         self._rule_ptr = None
+        self._nodeid = Node.get_unique_nodeid()
 
     def __str__(self):
-        return "[%s]" % str(self._data)
+        return "[%s_%d]" % (str(self._data), self._nodeid)
+
+    #def __eq__(self, other):
+    #    return other.get_uuid() == self._uuid
+
+    @staticmethod
+    def get_unique_nodeid():
+        Node.id += 1
+        return Node.id
+
+    def get_nodeid(self):
+        return self._nodeid
 
     @staticmethod
     def get_symlink(node):
@@ -96,6 +109,9 @@ class Sequitur:
         s = '\n'.join([Sequitur.rule_string(r) for r in rules])
         print("----GRAMMAR----\n%s\n---------------\n" % s)
 
+    def p(self):
+        self.print_grammar_string()
+
     @staticmethod
     def rule_string(rule_head_node: Node) -> str:
         s = rule_head_node.get_data()
@@ -176,6 +192,8 @@ class Sequitur:
         return next_node
 
     def remove_from_index(self, digram: Digram):
+        if digram.ri is None:
+            return
         if not Sequitur.is_guard_node(digram.ri):
             digram_key = self.get_digram_key(digram)
             self.digram_index.pop(digram_key, None)
@@ -273,6 +291,9 @@ class Sequitur:
             self.add_digram_to_index(digram)
         else:
             index_node = self.digram_index[self.get_digram_key(digram)]
+            if index_node.get_next().get_nodeid() == digram.le.get_nodeid():
+                # enforce constraint that a new rule cannot be built twice in succession
+                return curr_node
             if not Sequitur.index_node_is_rule(index_node):
                 # the index node points to a previous location in the start rule and not to a digram rule,
                 # so create one. and in so doing, replace the previous instance with it
@@ -304,5 +325,6 @@ class Sequitur:
 
 if __name__ == '__main__':
     #seq = list('abcdbc')
-    seq = list('abcdabce')
+    seq = list('abababab')
     Sequitur.run(seq)
+    print("done")
