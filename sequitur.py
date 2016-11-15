@@ -312,6 +312,7 @@ class Sequitur:
             right_node = Node(seq_vals[i], is_terminal=True)
             self.append_to_start_rule(right_node)
             digram = Digram(left_node, right_node)
+            print("%s | %s\n" % (' '.join(seq_vals[:(i+1)]), ' '.join(seq_vals[(i+1):])))
             left_node = self.make_link(digram)
             self.print_grammar_string()
             #left_node = right_node
