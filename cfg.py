@@ -67,7 +67,8 @@ class CFG:
     def is_terminal(sym: Symbol) -> bool:
         return sym.strip()[0] in string.ascii_lowercase or "'" in list(sym)
 
-    def parse_rhs_clauses(self, rhs_str):
+    @staticmethod
+    def parse_rhs_clauses(rhs_str):
         rhs_str_spl = rhs_str.split(CFG.SYMBOL_SEP)
         rhs = [Symbol(val=x, is_terminal=CFG.is_terminal(x)) for x in rhs_str_spl if len(x) > 0]
         return rhs
@@ -89,8 +90,9 @@ class CFG:
         nonterminals = grammar_dict.keys()
         cfg = CFG()
         for nonterminal in nonterminals:
-            cfg.rules[nonterminal.strip()] = ' '.join(grammar_dict[nonterminal])
-
+            rules = grammar_dict[nonterminal]
+            cfg.rules[nonterminal.strip()] = rules
+        return cfg
 
 
 if __name__ == '__main__':

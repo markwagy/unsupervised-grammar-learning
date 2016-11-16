@@ -1,4 +1,5 @@
 import string
+import cfg
 
 
 class Node:
@@ -137,6 +138,9 @@ class Sequitur:
     def get_rule_rhs(lhs_node):
         return lhs_node.get_next().get_next()
 
+    def get_start_rule_node(self):
+        return self.start_rule
+
     @staticmethod
     def get_rules(start_rule_node):
         rules_todo_list = [start_rule_node]
@@ -219,6 +223,20 @@ class Sequitur:
         vals = []
         while not Sequitur.is_guard_node(curr.get_next()):
             vals.append(curr.get_data())
+            curr = curr.get_next()
+        return vals
+
+    @staticmethod
+    def get_rule_rhs_object_list(rule_node: Node) -> list:
+        """
+        Returns a list of objects whose fields contain the RHS element data and whether it is a terminal
+        :param rule_node:
+        :return: list of objects
+        """
+        curr = Sequitur.get_rule_rhs(rule_node)
+        vals = []
+        while not Sequitur.is_guard_node(curr):
+            vals.append(cfg.Symbol(val=curr.get_data(), is_terminal=curr.is_terminal))
             curr = curr.get_next()
         return vals
 
@@ -344,15 +362,41 @@ class Sequitur:
             #left_node = right_node
 
     @staticmethod
+    def generate_random_sentence_helper():
+        pass
+
+    @staticmethod
+    def generate_random_sentence(sequitur_obj):
+        serial_seq_obj = Sequitur.to_serializable(sequitur_obj)
+        cfg_obj = cfg.CFG.from_dict(serial_seq_obj)
+        return cfg_obj.generate()
+
+    @staticmethod
+    def to_serializable(sequitur):
+        start_rule_node = sequitur.get_start_rule_node()
+        rules = Sequitur.get_rules(start_rule_node)
+        rules_dict = dict()
+        for rule in rules:
+            # in the future, we might need multiple rules for each non-terminal, so making the following a list of lists
+            # (also allows it to work with cfg module concept of a grammar)
+            rules_dict[rule.get_data()] = [Sequitur.get_rule_rhs_object_list(rule)]
+        return rules_dict
+
+    @staticmethod
     def run(seq: list):
         s = Sequitur()
         s.consume_sequence(seq)
-        #s.print_grammar_string()
 
 
 if __name__ == '__main__':
     #seq = list('abcdbc')
     #seq = list('ababababababababababababababababaabababababababababab')
-    seq = 'my name is peter i live in a hollow tree i like to pick flowers in the spring i like to watch the birds fly by in the fall i like to watch the leaves fall'.split(' ')
-    Sequitur.run(seq)
+    seq = 'Most labour sentiment would still favor the abolition of the House of Lords'.split(' ')
+    seq = list('in the beginning god created the heaven and the earth')
+    #Sequitur.run(seq)
+    sequitur = Sequitur()
+    sequitur.consume_sequence(seq)
+    Sequitur.to_serializable(sequitur)
+    sent = Sequitur.generate_random_sentence(sequitur)
+    print(sent)
     print("done")
