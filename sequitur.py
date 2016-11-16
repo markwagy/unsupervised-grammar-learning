@@ -352,6 +352,7 @@ class Sequitur:
 
 if __name__ == '__main__':
     #seq = list('abcdbc')
-    seq = list('ababababab')
+    #seq = list('ababababababababababababababababaabababababababababab')
+    seq = 'my name is peter i live in a hollow tree i like to pick flowers in the spring i like to watch the birds fly by in the fall i like to watch the leaves fall'.split(' ')
     Sequitur.run(seq)
     print("done")
