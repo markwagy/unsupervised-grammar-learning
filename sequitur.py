@@ -102,7 +102,17 @@ class Sequitur:
         return rule_node
 
     def __str__(self):
-        return " ".join(["%s" % str(s) for s in self.digram_index])
+        index_table = "{%s}" % " ".join(["%s" % str(s) for s in self.digram_index])
+        start_rule = "%s" % self.get_start_rule_string()
+        return "%s %s" % (start_rule, index_table)
+
+    def get_start_rule_string(self):
+        s = Sequitur.START_SYMBOL + "->"
+        n = self.start_rule.get_next().get_next()
+        while not Sequitur.is_guard_node(n):
+            s += "%s " % n.get_data()
+            n = n.get_next()
+        return s
 
     def print_grammar_string(self):
         rules = Sequitur.get_rules(self.start_rule)
@@ -252,60 +262,75 @@ class Sequitur:
             new_node.set_prev(end_node)
             new_node.set_next(guard_node)
 
-    def replace_digram_with_rule_symlink(self, rule_node: Node, digram: Digram):
-        rule_node_symlink = Node.get_symlink(rule_node)
-        prev_node = digram.le.get_prev()  # save prev node in the original  rule
-        next_node = digram.ri.get_next()  # save next node in the original rule
-        rule_node_symlink.set_next(next_node)
-        rule_node_symlink.set_prev(prev_node)
-        new_digram_le = Digram(prev_node, rule_node_symlink)
-        # link rule symlink in to previous and next nodes
-        self.make_link(new_digram_le)
-        self.remove_from_index(Digram(prev_node, digram.le))  # break old link in index hash
-        new_digram_ri = Digram(rule_node_symlink, next_node)
-        self.make_link(new_digram_ri)
-        self.remove_from_index(Digram(digram.ri, next_node))  # break old link in index table
-        # now place digram in rule
-        self.update_index(digram, rule_node)
-        # return this symlink for posterity
-        return rule_node_symlink
-
-    def create_new_rule(self, index_node: Node) -> Node:
+    def create_new_rule(self, index_node: Node, digram: Digram) -> Node:
         index_digram = Digram(index_node, index_node.get_next())
         rule_node, guard_node = self.construct_rule_head()
-        self.replace_digram_with_rule_symlink(rule_node, index_digram)
-        # link new rule to digram
-        guard_node.set_next(index_digram.le)
-        index_digram.le.set_prev(guard_node)
-        # create 'loop-around' from end of rule to guard
-        index_digram.ri.set_next(rule_node.get_next())
-        return rule_node
+        next_node = index_digram.ri.get_next()
+        prev_node = index_digram.le.get_prev()
+        self.splice_new_rule_into_index_digram_position(rule_node, index_digram, prev_node, next_node)
+        self.add_digram_to_rule(guard_node, index_digram)
+        prev_node = digram.le.get_prev()
+        next_node = digram.ri.get_next()
+        rule_symlink = self.splice_rule_into_digram_position(rule_node, digram, prev_node, next_node)
+        return rule_symlink
 
-    def make_link(self, digram: Digram):
-        # keep track of what is considered the 'current node' to return for linking to ensuing nodes
-        curr_node = digram.ri
-        digram.le.set_next(digram.ri)
+    def splice_new_rule_into_index_digram_position(self, new_rule: Node, index_digram: Digram, prev_node: Node, next_node: Node):
+        rule_symlink = Node.get_symlink(new_rule)
+        self.make_link_shallow(prev_node, rule_symlink)
+        self.remove_from_index(Digram(prev_node, index_digram.le))
+        self.make_link_shallow(rule_symlink, next_node)
+        self.remove_from_index(Digram(index_digram.ri, next_node))
+        self.update_index(index_digram, new_rule)
+
+    def splice_rule_into_digram_position(self, rule: Node, digram: Digram, prev_node: Node, next_node: Node):
+        rule_symlink = Node.get_symlink(rule)
+        # make 'next link' first so that rule symlink 'knows' where it is going. this turns out to be important
+        self.make_link(rule_symlink, next_node)
+        self.remove_from_index(Digram(digram.ri, next_node))
+        # keep track of rule_symlink updates due to new links made recursively
+        rule_symlink = self.make_link(prev_node, rule_symlink)
+        self.remove_from_index(Digram(prev_node, digram.le))
+        return rule_symlink
+
+    def add_digram_to_rule(self, guard: Node, digram: Digram):
+        guard.set_next(digram.le)
+        digram.ri.set_next(guard)
+
+    def make_link_shallow(self, left_node: Node, right_node: Node):
+        left_node.set_next(right_node)
+        digram = Digram(left_node, right_node)
+        already_in_index = self.digram_exists(digram)
         # a guard node should maintain the rule head node as its previous node
-        if not Sequitur.is_guard_node(digram.ri):
-            digram.ri.set_prev(digram.le)
-        if not self.digram_exists(digram):
-            # add digram to index
+        if not Sequitur.is_guard_node(right_node):
+            right_node.set_prev(left_node)
+        if not already_in_index:
             self.add_digram_to_index(digram)
-        else:
-            index_node = self.digram_index[self.get_digram_key(digram)]
-            if index_node.get_next().get_nodeid() == digram.le.get_nodeid():
+
+    def make_link(self, left_node: Node, right_node: Node):
+        digram_index_already_exists = self.digram_exists(Digram(left_node, right_node))
+        # keep track of what is considered the 'current node' to return for linking to ensuing nodes
+        return_node = right_node
+        self.make_link_shallow(left_node, right_node)
+        if digram_index_already_exists:
+            index_node = self.digram_index[self.get_digram_key(Digram(left_node, right_node))]
+            if index_node.get_next().get_nodeid() == left_node.get_nodeid():
                 # enforce constraint that a new rule cannot be built twice in succession
-                return curr_node
+                return return_node
             if not Sequitur.index_node_is_rule(index_node):
                 # the index node points to a previous location in the start rule and not to a digram rule,
                 # so create one. and in so doing, replace the previous instance with it
-                rule_node = self.create_new_rule(index_node)
+                rule_node_symlink = self.create_new_rule(index_node, Digram(left_node, right_node))
             else:
-                rule_node = index_node
-            rule_node_symlink = self.replace_digram_with_rule_symlink(rule_node, digram)
+                digram = Digram(left_node, right_node)
+                next_node = right_node.get_next()
+                prev_node = left_node.get_prev()
+                rule_node_symlink = self.splice_rule_into_digram_position(rule=index_node,
+                                                                          digram=digram,
+                                                                          prev_node=prev_node,
+                                                                          next_node=next_node)
             # we've changed what is the 'current node' because we've replaced it with a rule symlink
-            curr_node = rule_node_symlink
-        return curr_node
+            return_node = rule_node_symlink
+        return return_node
 
     def consume_sequence(self, seq_vals: list):
         left_node = Node(seq_vals[0], is_terminal=True)
@@ -313,9 +338,8 @@ class Sequitur:
         for i in range(1, len(seq_vals)):
             right_node = Node(seq_vals[i], is_terminal=True)
             self.append_to_start_rule(right_node)
-            digram = Digram(left_node, right_node)
             print("%s | %s\n" % (' '.join(seq_vals[:(i+1)]), ' '.join(seq_vals[(i+1):])))
-            left_node = self.make_link(digram)
+            left_node = self.make_link(left_node=left_node, right_node=right_node)
             self.print_grammar_string()
             #left_node = right_node
 
