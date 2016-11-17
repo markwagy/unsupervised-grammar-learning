@@ -2,6 +2,10 @@ import string
 import cfg
 
 
+# NOTES:
+# the only thing missing from this is the elimination of rules that only appear once. the rest works well
+# (and it was a pain to get it to work!). it warrants more work, should time become available (Nov, 2016)
+
 class Node:
 
     id = 0
@@ -93,6 +97,7 @@ class Sequitur:
         self.digram_index = dict()
         # start off rule structure with the start rule
         self.start_rule = Sequitur.construct_start_rule()
+        self.rule_counts = dict()
 
     @staticmethod
     def construct_start_rule():
@@ -114,6 +119,12 @@ class Sequitur:
             s += "%s " % n.get_data()
             n = n.get_next()
         return s
+
+    def increment_rule_counts(self, sym):
+        self.rule_counts[sym] += 1
+
+    def decrement_rule_counts(self, sym):
+        self.rule_counts[sym] -= 1
 
     def print_grammar_string(self):
         rules = Sequitur.get_rules(self.start_rule)
@@ -283,6 +294,8 @@ class Sequitur:
     def create_new_rule(self, index_node: Node, digram: Digram) -> Node:
         index_digram = Digram(index_node, index_node.get_next())
         rule_node, guard_node = self.construct_rule_head()
+        # create rule in rule counts dict
+        self.rule_counts[rule_node.get_data()] = 0
         next_node = index_digram.ri.get_next()
         prev_node = index_digram.le.get_prev()
         self.splice_new_rule_into_index_digram_position(rule_node, index_digram, prev_node, next_node)
@@ -292,6 +305,9 @@ class Sequitur:
         rule_symlink = self.splice_rule_into_digram_position(rule_node, digram, prev_node, next_node)
         return rule_symlink
 
+    def digram_is_repeated_nonterminals(self, digram):
+        return digram.ri.get_data() == digram.le.get_data() and not digram.le.is_terminal()
+
     def splice_new_rule_into_index_digram_position(self, new_rule: Node, index_digram: Digram, prev_node: Node, next_node: Node):
         rule_symlink = Node.get_symlink(new_rule)
         self.make_link_shallow(prev_node, rule_symlink)
@@ -299,6 +315,9 @@ class Sequitur:
         self.make_link_shallow(rule_symlink, next_node)
         self.remove_from_index(Digram(index_digram.ri, next_node))
         self.update_index(index_digram, new_rule)
+        self.increment_rule_counts(rule_symlink.get_data())
+        if self.digram_is_repeated_nonterminals(index_digram):
+            self.decrement_rule_counts(index_digram.le.get_data())
 
     def splice_rule_into_digram_position(self, rule: Node, digram: Digram, prev_node: Node, next_node: Node):
         rule_symlink = Node.get_symlink(rule)
@@ -308,6 +327,9 @@ class Sequitur:
         # keep track of rule_symlink updates due to new links made recursively
         rule_symlink = self.make_link(prev_node, rule_symlink)
         self.remove_from_index(Digram(prev_node, digram.le))
+        self.increment_rule_counts(rule_symlink.get_data())
+        if self.digram_is_repeated_nonterminals(digram):
+            self.decrement_rule_counts(digram.le.get_data())
         return rule_symlink
 
     def add_digram_to_rule(self, guard: Node, digram: Digram):
@@ -350,6 +372,12 @@ class Sequitur:
             return_node = rule_node_symlink
         return return_node
 
+    def print_rule_counts(self):
+        print("rule counts:")
+        for k in self.rule_counts.keys():
+            print("%s) %d" % (k, self.rule_counts[k]))
+        print("\n")
+
     def consume_sequence(self, seq_vals: list):
         left_node = Node(seq_vals[0], is_terminal=True)
         self.append_to_start_rule(left_node)
@@ -359,6 +387,7 @@ class Sequitur:
             print("%s | %s\n" % (' '.join(seq_vals[:(i+1)]), ' '.join(seq_vals[(i+1):])))
             left_node = self.make_link(left_node=left_node, right_node=right_node)
             self.print_grammar_string()
+            self.print_rule_counts()
             #left_node = right_node
 
     @staticmethod
@@ -390,13 +419,13 @@ class Sequitur:
 
 if __name__ == '__main__':
     #seq = list('abcdbc')
-    #seq = list('ababababababababababababababababaabababababababababab')
-    seq = 'Most labour sentiment would still favor the abolition of the House of Lords'.split(' ')
-    seq = list('in the beginning god created the heaven and the earth')
+    seq = list('ababababababababababababababababaabababababababababab')
+    #seq = 'Most labour sentiment would still favor the abolition of the House of Lords'.split(' ')
+    #seq = list('in the beginning god created the heaven and the earth')
     #Sequitur.run(seq)
     sequitur = Sequitur()
     sequitur.consume_sequence(seq)
-    Sequitur.to_serializable(sequitur)
-    sent = Sequitur.generate_random_sentence(sequitur)
-    print(sent)
+    #Sequitur.to_serializable(sequitur)
+    #sent = Sequitur.generate_random_sentence(sequitur)
+    #print(sent)
     print("done")
