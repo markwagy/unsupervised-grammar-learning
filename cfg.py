@@ -2,6 +2,7 @@ import string
 from collections import defaultdict
 import random
 from six import string_types
+import re
 
 
 class Symbol:
@@ -28,6 +29,16 @@ class CFG:
         self.rules = defaultdict(lambda: '')
         self.initial_lhs = CFG.START_SYMBOL
         self.terminals = []
+
+    def __str__(self):
+        d = self.to_serializable()
+        s = "%s %s %s\n" % (self.START_SYMBOL, CFG.LHS_RHS_SEP, '|'.join([' '.join([x.val for x in s])
+                                                                          for s in self.rules[self.START_SYMBOL]]))
+        keys_no_start = [ki for ki in filter(lambda k: k != self.START_SYMBOL, d.keys())]
+        for k in sorted(keys_no_start):
+            rhs_lst = self.rules[str(k)]
+            s += "%s %s %s\n" % (k, CFG.LHS_RHS_SEP, CFG.OR_SEP.join(rhs_lst))
+        return s
 
     def add_from_tuple(self, rhs, lhs):
         self.rules[lhs.strip()] = []
@@ -78,12 +89,19 @@ class CFG:
         rhss = [self.parse_rhs_clauses(rhs_str) for rhs_str in rhs_str_or]
         return rhss
 
+    def load_from_text(self, text):
+        cleaned_text = re.sub(r"[^\w\s]", "", text.strip())
+        self.rules[CFG.START_SYMBOL] = self.parse_rhs_or_clauses(text)
+
     def load(self, filename):
         f = open(filename, 'r')
         for line in f.readlines():
             (lhs, rhs_str) = [s.strip() for s in line.split('->')]
             # there can be multiple rhs of a rule because of the 'or' symbol
             self.rules[lhs.strip()] = self.parse_rhs_or_clauses(rhs_str)
+
+    def to_serializable(self):
+        return self.rules
 
     @staticmethod
     def from_dict(grammar_dict):
