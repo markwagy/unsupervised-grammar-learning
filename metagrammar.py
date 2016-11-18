@@ -1,7 +1,7 @@
 from cfg import CFG
 import json
 import sys
-import re
+import re, string
 from collections import defaultdict
 
 
@@ -16,6 +16,9 @@ class Node(object):
 
     def get_next(self):
         return self._next
+
+    def get_symbol(self):
+        return self._symbol
 
     def bind(self, symbol):
         self._symbol = symbol
@@ -137,6 +140,9 @@ class PatternTemplate:
     pattern template.
     """
 
+    str_idx = -1
+    num_chars = 1
+
     def __init__(self, pattern_def_string: str) -> object:
         self.all_nodes = dict()
         self.start_key = None
@@ -145,6 +151,20 @@ class PatternTemplate:
         self.curr_node = self.all_nodes[self.start_key]
         self.status = Status.Idle
         self.matchseq = []  # store the sequenec that is being matched
+        self.uid = PatternTemplate.get_uid()
+
+    def __str__(self):
+        s = self.pattern_def_string
+        return "(%s) %s" % (self.uid, s)
+
+    @staticmethod
+    def get_uid():
+        if PatternTemplate.str_idx >= len(string.ascii_uppercase):
+            PatternTemplate.str_idx = 0
+            PatternTemplate.num_chars += 1
+        uid = string.ascii_uppercase[PatternTemplate.str_idx + 1]
+        PatternTemplate.str_idx += 1
+        return uid
 
     def parse(self, pattern_string):
         if not PatternTemplateDef.check(pattern_string):
@@ -229,7 +249,10 @@ class MatchRecord:
         self.match_sequence = match_sequence
         self.lhs = lhs
         self.rhs_position = rhs_position
-        self.match_count = 0
+        self.match_count = 1
+
+    def increment_count(self):
+        self.match_count += 1
 
     @staticmethod
     def get_hash(seq):
@@ -252,25 +275,26 @@ class MetaGrammar:
     def initialize(self, text):
         self.grammar.load_from_text(text)
 
-    def add_match_record(self, seq, lhs, rhs_pos):
+    def add_match_record(self, seq, lhs, curr_pos):
         # we'll only add the match sequence with relevant information here. leave it to another method for
         # how to replace the found sequences (since there will necessarily be conflicts and ordering considerations)
         match_key = MatchRecord.get_hash(seq)
         if match_key in self.match_records.keys():
             self.match_records[match_key].increment_count()
         else:
+            rhs_pos = curr_pos - len(seq) + 1
             self.match_records[match_key] = MatchRecord(seq, lhs, rhs_pos)
 
     def consume_sequence(self, seq, lhs):
-        for rhs_pos in range(len(seq)):
-            symbol = seq[rhs_pos]
+        for curr_pos in range(len(seq)):
+            symbol = seq[curr_pos]
             for ps in self.pattern_strings:
                 # either use an existing and available pattern template or create a new one if necessary
                 if len(self.available_pattern_templates[ps]) == 0:
                     # there aren't any already available so create a new one
-                    pt = PatternTemplate(ps)
-                    self.running_pattern_templates[ps].append(pt)
+                    self.running_pattern_templates[ps].append(PatternTemplate(ps))
                 else:
+                    # reuse a pattern template for the new subsequence starting at curr_pos
                     self.running_pattern_templates[ps].append(self.available_pattern_templates[ps].pop())
                 for pt in self.running_pattern_templates[ps]:
                     status = pt.consume_next(symbol)
@@ -278,12 +302,12 @@ class MetaGrammar:
                         self.reset_patterntemplate_and_make_available(pt, ps)
                     elif status == Status.FoundMatch:
                         match_sequence = pt.get_match_sequence()
-                        self.add_match_record(match_sequence, lhs, rhs_pos)
+                        self.add_match_record(match_sequence, lhs, curr_pos)
                         self.reset_patterntemplate_and_make_available(pt, ps)
 
     def reset_patterntemplate_and_make_available(self, pattern_template, pattern_string):
         pattern_template.reset()
-        self.running_pattern_templates[pattern_string].pop()
+        self.running_pattern_templates[pattern_string].remove(pattern_template)
         self.available_pattern_templates[pattern_string].append(pattern_template)
 
     def run_patterns(self):
@@ -291,9 +315,9 @@ class MetaGrammar:
         for i in range(3):
             print("\n - pattern run %d" % (i+1))
             #self.grammar = PatternFinder.seqs_of_seqs(self.grammar, self.window_length, self.stride)
-            self.grammar = PatternFinder.follows(self.grammar)
-            self.grammar = PatternFinder.precedes(self.grammar)
-            self.grammar.clean_up()
+            #self.grammar = PatternFinder.follows(self.grammar)
+            #self.grammar = PatternFinder.precedes(self.grammar)
+            #self.grammar.clean_up()
 
     def print_grammar(self):
         print(str(self.grammar))
