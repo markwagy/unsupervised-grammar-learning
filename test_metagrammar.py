@@ -37,9 +37,19 @@ class TestMetaGrammar(TestCase):
         metagram.print_match_records()
         self.assertEqual(len(metagram.match_records), 2)
 
+    def test_replace_all_instances(self):
+        sym = Symbol('X', False)
+        l1 = [Symbol(x, True) for x in [1, 2, 1, 2]]
+        self.assertListEqual(MetaGrammar.replace_all_instances(l1, l1[0:2], sym), [sym, sym])
+        l2 = [Symbol(x, True) for x in [1, 2, 0, 2]]
+        self.assertListEqual(MetaGrammar.replace_all_instances(l2, l2[0:2], sym), [sym, Symbol(0, True), Symbol(2, True)])
+        l3 = [Symbol(x, True) for x in [0, 2, 0, 2]]
+        self.assertListEqual(MetaGrammar.replace_all_instances(l3, l2[0:2], sym), l3)
+        self.assertListEqual(MetaGrammar.replace_all_instances([0, 2, 0, 2], [0, 2, 0], sym), [sym, 2])
+        self.assertListEqual(MetaGrammar.replace_all_instances([0, 2, 0, 2, 1, 2, 0, 1, 2], [1, 2], sym), [0, 2, 0, 2, sym, 0, sym])
+
 
 class TestPatternTemplate(TestCase):
-
     def test_consume_1(self):
         pattem = PatternTemplate('xy')
         self.assertTrue(pattem.consume_sequence('ab'))
@@ -55,3 +65,6 @@ class TestPatternTemplate(TestCase):
         self.assertFalse(pattem.consume_sequence('abux'))
         self.assertTrue(pattem.consume_sequence('abub'))
         self.assertFalse(pattem.consume_sequence('ab'))
+
+
+

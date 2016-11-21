@@ -1,9 +1,9 @@
-from cfg import CFG
+from cfg import CFG, Symbol
 import json
 import sys
 import string
 from collections import defaultdict
-
+import re
 
 VERBOSE = True
 
@@ -16,7 +16,6 @@ class Status:
     Idle = "idle"
 
 
-# for now, this is just a DFA...
 class PatternTemplate:
     """
     Class that builds a pattern template architecture and finds match sequences.
@@ -121,27 +120,43 @@ class PatternTemplate:
         return list(map(lambda s: self.vars[s], self.slots))
 
 
-class MatchRecord:
+class GrammarPosition:
 
-    def __init__(self, match_sequence, lhs, rhs_position):
-        self.match_sequence = match_sequence
+    def __init__(self, lhs, rhs_beg, rhs_end):
         self.lhs = lhs
-        self.rhs_positions = [rhs_position]
+        self.rhs_begin = rhs_beg
+        self.rhs_end = rhs_end
 
     def __str__(self):
-        return "lhs: %s rhs_pos: %s\tcount:%d\t%s" % \
-               (self.lhs, ','.join([str(rp) for rp in self.rhs_positions]),
+        return "@%s(%d, %d)" % (self.lhs, self.rhs_begin, self.rhs_end)
+
+
+class MatchRecord:
+
+    mr_count = 0
+
+    def __init__(self, match_sequence, lhs, rhs_begin, rhs_end):
+        self.match_sequence = match_sequence
+        self.grammar_positions = [GrammarPosition(lhs, rhs_begin, rhs_end)]
+        self.count = MatchRecord.mr_count
+        MatchRecord.mr_count += 1
+
+    def __str__(self):
+        return "pos %s\tcount:%d\t%s" % \
+               ('; '.join([str(gp) for gp in self.grammar_positions]),
                 self.get_match_count(), [str(s) for s in self.match_sequence])
 
     def get_match_count(self):
-        return len(self.rhs_positions)
+        return len(self.grammar_positions)
 
-    def add_rhs_position(self, rhs_position):
-        self.rhs_positions.append(rhs_position)
+    def add_new_position(self, lhs, rhs_begin, rhs_end):
+        self.grammar_positions.append(GrammarPosition(lhs, rhs_begin, rhs_end))
 
     @staticmethod
-    def get_hash(seq):
-        return '.'.join([str(s) for s in seq])
+    def get_hash(seq, wildcard_idxs):
+        if wildcard_idxs is None:
+            wildcard_idxs = []
+        return '.'.join(['*' if i in wildcard_idxs else str(seq[i]) for i in range(len(seq))])
 
 
 class MetaGrammar:
@@ -158,22 +173,38 @@ class MetaGrammar:
             self.available_pattern_templates[ps].append(PatternTemplate(ps))
 
     def initialize(self, text):
-        self.grammar.load_from_text(text)
+        text_clean = MetaGrammar.clean(text)
+        self.grammar.load_from_text(text_clean)
+
+    @staticmethod
+    def clean(text):
+        text_clean = re.sub(r"[^\w\s]", "", text)
+        return text_clean
 
     def print_match_records(self):
         print("\nMATCH RECORDS --")
         for k in self.match_records.keys():
             print(str(self.match_records[k]))
 
-    def add_match_record(self, seq, lhs, curr_pos):
+    @staticmethod
+    def get_wildcard_idxs(pattern_string):
+        idxs = []
+        lst = list(pattern_string)
+        for i in range(len(lst)):
+            if lst[i] == PatternTemplate.WILDCARD:
+                idxs.append(i)
+        return idxs
+
+    def add_match_record(self, seq, lhs, curr_pos, wildcard_idxs):
         # we'll only add the match sequence with relevant information here. leave it to another method for
         # how to replace the found sequences (since there will necessarily be conflicts and ordering considerations)
-        match_key = MatchRecord.get_hash(seq)
-        rhs_pos = curr_pos - len(seq) + 1
+        match_key = MatchRecord.get_hash(seq, wildcard_idxs)
+        rhs_begin = curr_pos - len(seq) + 1
         if match_key in self.match_records.keys():
-            self.match_records[match_key].add_rhs_position(rhs_pos)
+            self.match_records[match_key].add_new_position(lhs, rhs_begin, curr_pos)
         else:
-            self.match_records[match_key] = MatchRecord(seq, lhs, rhs_pos)
+            seq_sub = [PatternTemplate.WILDCARD if i in wildcard_idxs else seq[i] for i in range(len(seq))]
+            self.match_records[match_key] = MatchRecord(seq_sub, lhs, rhs_begin, curr_pos)
 
     def ensure_running_pattern_templates_exist(self, pattern_string):
         # either use an existing and available pattern template or create a new one if necessary
@@ -198,17 +229,66 @@ class MetaGrammar:
                         self.reset_pattern_template_and_make_available(patem, ps)
                     elif status == Status.FoundMatch:
                         match_sequence = patem.get_match_sequence()
-                        self.add_match_record(match_sequence, lhs, curr_pos)
+                        wildcard_idxs = self.get_wildcard_idxs(ps)
+                        self.add_match_record(match_sequence, lhs, curr_pos, wildcard_idxs)
                         if VERBOSE:
-                            print("found sequence: %s" % ' '.join(match_sequence))
+                            print("found sequence: %s" % ' '.join([str(ms) for ms in match_sequence]))
                         self.flag_pattern_template_for_reuse(patem)
                 for patem in self.running_pattern_templates[ps]:
                     if patem.is_available():
                         self.reset_pattern_template_and_make_available(patem, ps)
 
+    @staticmethod
+    def replace_all_instances(sequence, subsequence, replacement_symbol: Symbol) -> list:
+        new_sequence = []
+        seq_i = 0
+        while seq_i < len(sequence):
+            if (seq_i + len(subsequence)) > len(sequence):
+                new_sequence.extend(sequence[seq_i:])
+                break
+            matches = [False for _ in range(len(subsequence))]
+            for sub_i in range(0, len(subsequence)):
+                matches[sub_i] = subsequence[sub_i] == sequence[seq_i+sub_i].val or subsequence[sub_i] == PatternTemplate.WILDCARD
+            if all(matches):
+                new_sequence.append(replacement_symbol)
+                seq_i += len(subsequence)
+            else:
+                new_sequence.append(sequence[seq_i])
+                seq_i += 1
+        return new_sequence
+
     def replace_matches(self):
-        # TODO
-        pass
+        # for now, replace by "first encountered"
+        mr_keys = list(self.match_records.keys())
+        mr_keys_srt = sorted(mr_keys, key=lambda x: self.match_records[x].count)
+        new_rules = defaultdict(list)
+        for k in mr_keys_srt:
+            new_val = PatternTemplate.get_uid()
+            match_record = self.match_records[k]
+            for lhs in self.grammar.rules.keys():
+                for rhs in self.grammar.rules[lhs]:
+                    new_rhs = MetaGrammar.replace_all_instances(rhs, match_record.match_sequence, Symbol(new_val, is_terminal=False))
+                    self.grammar.rules[lhs] = [new_rhs if r == rhs else r for r in self.grammar.rules[lhs]]
+                    new_rules[new_val] = [Symbol(v) for v in match_record.match_sequence]
+        for new_rule_lhs in new_rules.keys():
+            self.grammar.rules[new_rule_lhs].append(new_rules[new_rule_lhs])
+        foo = 1
+
+    def reset_matches(self):
+        self.match_records = dict()
+
+    def get_matches(self):
+        for rule_lhs in self.grammar.rules.keys():
+            if VERBOSE:
+                print("LHS: %s" % rule_lhs)
+            for rhs in self.grammar.rules[rule_lhs]:
+                vals = [sym.val for sym in rhs]
+                if VERBOSE:
+                    print("RHS: %s" % vals)
+                self.consume_sequence(vals, rule_lhs)
+
+    def matches_found(self):
+        return len(list(self.match_records.keys())) > 0
 
     @staticmethod
     def flag_pattern_template_for_reuse(pattern_template):
@@ -219,14 +299,13 @@ class MetaGrammar:
         self.running_pattern_templates[pattern_string].remove(pattern_template)
         self.available_pattern_templates[pattern_string].append(pattern_template)
 
-    def run_patterns(self):
-        # TODO
-        for i in range(3):
-            print("\n - pattern run %d" % (i+1))
-            #self.grammar = PatternFinder.seqs_of_seqs(self.grammar, self.window_length, self.stride)
-            #self.grammar = PatternFinder.follows(self.grammar)
-            #self.grammar = PatternFinder.precedes(self.grammar)
-            #self.grammar.clean_up()
+    def run(self):
+        self.get_matches()
+        while self.matches_found():
+            self.print_match_records()
+            self.replace_matches()
+            self.reset_matches()
+            self.get_matches()
 
     def print_grammar(self):
         print(str(self.grammar))
@@ -242,7 +321,11 @@ def simple_text():
 
 
 def a_few_sentences():
-    return 'my undervalued monkey above my leaf ate through another exploding man. another worm under our exciting pajamas interjected through another elephant. my chair sat a girl.'
+    return """
+    my undervalued monkey above my leaf ate through another exploding man.
+    another worm under our exciting pajamas interjected through another elephant.
+    my chair sat a girl.
+    """
 
 
 def cfg_text():
@@ -258,16 +341,14 @@ def nmw_seq():
 
 
 def runner(text):
-    mg = MetaGrammar('x-y')
+    mg = MetaGrammar(['x*'])
     mg.initialize(text)
     print("\n--- INITIAL")
     mg.print_grammar()
     print("\n--- PATTERNS...")
-    mg.run_patterns()
+    mg.run()
     print("\n--- FINAL")
     mg.print_grammar()
-    #exp_str = mg.grammar.get_expanded_string()
-    #print ("EXPANDED STRING: \n %s" % exp_str)
     print("\n--- RANDOM SENTENCES")
     NUM_SENTS = 20
     for i in range(NUM_SENTS):
@@ -277,9 +358,6 @@ def runner(text):
 
 
 if __name__ == '__main__':
-
-    pt = PatternTemplate('xy')
-
     sys.argv[1] = '1'
     if sys.argv[1] == '1':
         text = simple_text()
