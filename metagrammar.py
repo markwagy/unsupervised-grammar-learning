@@ -1,131 +1,11 @@
 from cfg import CFG
 import json
 import sys
-import re
 import string
 from collections import defaultdict
 
 
 VERBOSE = True
-
-
-class Node(object):
-
-    def __init__(self):
-        self._next = None
-        self._symbol = None
-
-    def set_next(self, nextval):
-        self._next = nextval
-
-    def get_next(self):
-        return self._next
-
-    def get_symbol(self):
-        return self._symbol
-
-    def bind(self, symbol):
-        self._symbol = symbol
-
-    def has_next(self):
-        return self._next is not None
-
-    def is_bound(self):
-        return self._symbol is not None
-
-
-class VarNode(Node):
-
-    WILDCARD = '*'
-
-    def __init__(self, var):
-        super().__init__()
-        self._is_start_node = False
-        self._is_final_node = False
-        self._var = var
-
-    def __str__(self):
-        if self._symbol is not None:
-            sym = " (%s)" % str(self._symbol)
-        else:
-            sym = ""
-        return "%s%s" % (self._var, sym)
-
-    def matches(self, val):
-        return val == self._symbol or self._symbol == VarNode.WILDCARD
-
-    def set_is_start_node(self):
-        self._is_start_node = True
-
-    def set_is_final_node(self):
-        self._is_final_node = True
-
-    def is_final(self):
-        return self._is_final_node
-
-    def is_start(self):
-        return self._is_start_node
-
-    def get_var(self):
-        return self._var
-
-    def reset(self):
-        self._symbol = None
-
-    def clone_and_bind_symbol(self, symbol):
-        new_node = VarNode(self.get_var())
-        new_node._is_final_node = self._is_final_node
-        new_node._is_start_node = self._is_start_node
-        new_node.set_next(self.get_next())
-        new_node.bind(symbol)
-        return new_node
-
-
-class PatternTemplateDef(object):
-
-    """
-    A simple definition 'language' for pattern machines.
-
-    Simply consists of a connection symbol that connects symbols. The direction is from the symbol on the left
-    to the symbol to the right of the connection. A connection that has only a node on the left and none on the right
-    is interpreted to be an outgoing connection (a 'receiver' node) and one with only a symbol on the right and none
-    on the left is an 'incoming'/'acceptor' node.
-
-    Conections are delimited by the special separator symbol.
-
-    Spaces are ignored but recommended between connections. Symbols can be anything that isn't the connection symbol,
-    the separator symbol or the 'wildcard' symbol.
-
-    This def will probably change as we accept higher level grammars than just those that can be accepted by a DFA.
-    At least that is the hope.
-    """
-
-    CONNECTION = '-'
-    SEPARATOR = ';'
-    WILDCARD = VarNode.WILDCARD
-
-    def __init__(self):
-        pass
-
-    @staticmethod
-    def clean(pattern_string):
-        cl = re.sub(r"\s*", "", pattern_string)
-        cl = re.sub("\n", "", cl)
-        return cl
-
-    @staticmethod
-    def is_start(con):
-        return list(con)[0] == PatternTemplateDef.CONNECTION
-
-    @staticmethod
-    def is_final(con):
-        return list(con)[-1] == PatternTemplateDef.CONNECTION
-
-    @staticmethod
-    def check(pattern_string):
-        has_start_node = bool(re.search(r"(^-)|(;-)", pattern_string))
-        has_end_node = bool(re.search(r"(-$)|(-;)", pattern_string))
-        return has_end_node and has_start_node
 
 
 class Status:
@@ -145,15 +25,14 @@ class PatternTemplate:
     str_idx = -1
     num_chars = 1
     pt_id = 0
+    WILDCARD = '*'
 
     def __init__(self, pattern_def_string: str, is_available=False) -> object:
-        self.all_nodes = dict()
-        self.start_key = None
         self.pattern_def_string = pattern_def_string
-        self.parse(pattern_def_string)
-        self.curr_node = self.all_nodes[self.start_key]
         self.status = Status.Idle
-        self.matchseq = []  # store the sequenec that is being matched
+        self.vars = dict()
+        self.slots = list(pattern_def_string)
+        self.current_slot_position = 0
         self.uid = PatternTemplate.get_pattern_template_id()
         self._is_available = is_available
 
@@ -182,80 +61,64 @@ class PatternTemplate:
         return self._is_available
 
     def parse(self, pattern_string):
-        if not PatternTemplateDef.check(pattern_string):
-            raise Exception("Pattern definition does not check out.")
-        connections = PatternTemplateDef.clean(pattern_string).split(PatternTemplateDef.SEPARATOR)
-        for con in connections:
-            con = PatternTemplateDef.clean(con)
-            con_spl = list(filter(lambda x: len(x) > 0, con.split(PatternTemplateDef.CONNECTION)))
-            if len(con_spl) > 2:
-                raise Exception("Too many connection elements in pattern definition.")
-            if PatternTemplateDef.is_start(con):
-                start_var = con_spl[0]
-                self.add_start_var(start_var)
-            elif PatternTemplateDef.is_final(con):
-                self.add_final_var(con_spl[0])
-            else:
-                self.add_connection(con_spl[0], con_spl[1])
+        self.slots = list(pattern_string)
 
     def get_status(self):
         return self.status
 
-    def get_varnode(self, var) -> VarNode:
-        if var not in self.all_nodes.keys():
-            self.all_nodes[var] = VarNode(var)
-        return self.all_nodes[var]
+    def bind_var(self, symbol, var):
+        self.vars[var] = symbol
 
-    def add_connection(self, var_fr, var_to):
-        node_fr = self.get_varnode(var_fr)
-        node_to = self.get_varnode(var_to)
-        node_fr.set_next(node_to)
+    def current_var_is_bound(self):
+        var = self.slots[self.current_slot_position]
+        return var in self.vars.keys()
 
-    def add_start_var(self, var):
-        node = self.get_varnode(var)
-        node.set_is_start_node()
-        self.start_key = var
+    def symbol_matches_current_slot(self, symbol):
+        slot_val = self.vars[self.slots[self.current_slot_position]]
+        return slot_val == symbol or slot_val == PatternTemplate.WILDCARD
 
-    def add_final_var(self, var):
-        node = self.get_varnode(var)
-        node.set_is_final_node()
-
-    def get_transition_nodes(self):
-        nodes = [self.all_nodes[key] for key in self.all_nodes.keys()
-                 if not (self.all_nodes[key].is_final() or self.all_nodes[key].is_accept())]
-        return nodes
+    def at_last_slot(self):
+        return (len(self.slots) - 1) == self.current_slot_position
 
     def consume_next(self, sym):
-        self.matchseq.append(sym)
-        if self.curr_node.is_bound():
-            if self.curr_node.matches(sym) and self.curr_node.is_final():
+        if not self.current_var_is_bound():
+            self.bind_var(sym, self.slots[self.current_slot_position])
+        at_last_slot = self.at_last_slot()
+        symbol_does_match = self.symbol_matches_current_slot(sym)
+        if at_last_slot:
+            if symbol_does_match:
                 self.status = Status.FoundMatch
-            elif self.curr_node.matches(sym):
-                self.status = Status.Consuming
             else:
                 self.status = Status.NoMatch
         else:
-            self.curr_node.bind(sym)
-            if self.curr_node.is_final():
-                self.status = Status.FoundMatch
-            else:
+            if symbol_does_match:
                 self.status = Status.Consuming
-        # advance to next node
-        self.curr_node = self.curr_node.get_next()
+            else:
+                self.status = Status.NoMatch
+        self.advance_slot_position()
         return self.status
 
-    def get_start_varnode(self):
-        return self.all_nodes[self.start_key]
+    def consume_sequence(self, seq):
+        found_match = False
+        for s in seq:
+            self.consume_next(s)
+            if self.status == Status.NoMatch:
+                break
+        if self.status == Status.FoundMatch:
+            found_match = True
+        self.reset()
+        return found_match
+
+    def advance_slot_position(self):
+        self.current_slot_position += 1
 
     def reset(self):
-        for k in self.all_nodes.keys():
-            self.all_nodes[k].reset()
-        self.matchseq = []
+        self.vars = dict()
         self.status = Status.Idle
-        self.curr_node = self.get_start_varnode()
+        self.current_slot_position = 0
 
-    def get_match_sequence(self):
-        return self.matchseq
+    def get_match_sequence(self) -> list:
+        return list(map(lambda s: self.vars[s], self.slots))
 
 
 class MatchRecord:
@@ -316,29 +179,29 @@ class MetaGrammar:
             self.running_pattern_templates[pattern_string].append(PatternTemplate(pattern_string, is_available=False))
         else:
             # reuse a pattern template for the new subsequence starting at curr_pos
-            pt = self.available_pattern_templates[pattern_string].pop()
-            pt.set_is_available(False)
-            self.running_pattern_templates[pattern_string].append(pt)
+            patem = self.available_pattern_templates[pattern_string].pop()
+            patem.set_is_available(False)
+            self.running_pattern_templates[pattern_string].append(patem)
 
     def consume_sequence(self, seq, lhs):
         for curr_pos in range(len(seq)):
             symbol = seq[curr_pos]
             for ps in self.pattern_strings:
                 self.ensure_running_pattern_templates_exist(ps)
-                for pt in self.running_pattern_templates[ps]:
-                    status = pt.consume_next(symbol)
+                for patem in self.running_pattern_templates[ps]:
+                    status = patem.consume_next(symbol)
                     if status == Status.NoMatch:
-                        self.flag_pattern_template_for_reuse(pt)
-                        self.reset_pattern_template_and_make_available(pt, ps)
+                        self.flag_pattern_template_for_reuse(patem)
+                        self.reset_pattern_template_and_make_available(patem, ps)
                     elif status == Status.FoundMatch:
-                        match_sequence = pt.get_match_sequence()
+                        match_sequence = patem.get_match_sequence()
                         self.add_match_record(match_sequence, lhs, curr_pos)
                         if VERBOSE:
                             print("found sequence: %s" % ' '.join(match_sequence))
-                        self.flag_pattern_template_for_reuse(pt)
-                for pt in self.running_pattern_templates[ps]:
-                    if pt.is_available():
-                        self.reset_pattern_template_and_make_available(pt, ps)
+                        self.flag_pattern_template_for_reuse(patem)
+                for patem in self.running_pattern_templates[ps]:
+                    if patem.is_available():
+                        self.reset_pattern_template_and_make_available(patem, ps)
 
     def replace_matches(self):
         # TODO
@@ -412,7 +275,7 @@ def runner(text):
 
 if __name__ == '__main__':
 
-    pt = PatternTemplate('-x;x-y;y-')
+    pt = PatternTemplate('xy')
 
     sys.argv[1] = '1'
     if sys.argv[1] == '1':
