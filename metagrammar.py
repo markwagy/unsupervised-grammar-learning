@@ -313,7 +313,7 @@ class MetaGrammar:
                 for pt in self.running_pattern_templates[ps]:
                     status = pt.consume_next(symbol)
                     if status == Status.NoMatch:
-                        self.flag_pattern_template_for_reuse(pt, ps)
+                        self.flag_pattern_template_for_reuse(pt)
                         self.reset_patterntemplate_and_make_available(pt, ps)
                     elif status == Status.FoundMatch:
                         match_sequence = pt.get_match_sequence()
