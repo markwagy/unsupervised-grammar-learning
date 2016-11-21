@@ -7,6 +7,7 @@ from collections import defaultdict
 
 VERBOSE = True
 
+
 class Node(object):
 
     def __init__(self):
@@ -314,7 +315,7 @@ class MetaGrammar:
                     status = pt.consume_next(symbol)
                     if status == Status.NoMatch:
                         self.flag_pattern_template_for_reuse(pt)
-                        self.reset_patterntemplate_and_make_available(pt, ps)
+                        self.reset_pattern_template_and_make_available(pt, ps)
                     elif status == Status.FoundMatch:
                         match_sequence = pt.get_match_sequence()
                         self.add_match_record(match_sequence, lhs, curr_pos)
@@ -323,13 +324,13 @@ class MetaGrammar:
                         self.flag_pattern_template_for_reuse(pt)
                 for pt in self.running_pattern_templates[ps]:
                     if pt.is_available():
-                        self.reset_patterntemplate_and_make_available(pt, ps)
+                        self.reset_pattern_template_and_make_available(pt, ps)
 
     @staticmethod
     def flag_pattern_template_for_reuse(pattern_template):
         pattern_template.set_is_available(True)
 
-    def reset_patterntemplate_and_make_available(self, pattern_template, pattern_string):
+    def reset_pattern_template_and_make_available(self, pattern_template, pattern_string):
         pattern_template.reset()
         self.running_pattern_templates[pattern_string].remove(pattern_template)
         self.available_pattern_templates[pattern_string].append(pattern_template)
