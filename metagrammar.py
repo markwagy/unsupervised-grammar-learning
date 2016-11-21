@@ -126,15 +126,18 @@ class MatchRecord:
     def __init__(self, match_sequence, lhs, rhs_position):
         self.match_sequence = match_sequence
         self.lhs = lhs
-        self.rhs_position = rhs_position
-        self.match_count = 1
+        self.rhs_positions = [rhs_position]
 
     def __str__(self):
-        return "lhs: %s rhs_pos: %d\tcount:%d\t%s" % \
-               (self.lhs, self.rhs_position, self.match_count, [str(s) for s in self.match_sequence])
+        return "lhs: %s rhs_pos: %s\tcount:%d\t%s" % \
+               (self.lhs, ','.join([str(rp) for rp in self.rhs_positions]),
+                self.get_match_count(), [str(s) for s in self.match_sequence])
 
-    def increment_count(self):
-        self.match_count += 1
+    def get_match_count(self):
+        return len(self.rhs_positions)
+
+    def add_rhs_position(self, rhs_position):
+        self.rhs_positions.append(rhs_position)
 
     @staticmethod
     def get_hash(seq):
@@ -166,10 +169,10 @@ class MetaGrammar:
         # we'll only add the match sequence with relevant information here. leave it to another method for
         # how to replace the found sequences (since there will necessarily be conflicts and ordering considerations)
         match_key = MatchRecord.get_hash(seq)
+        rhs_pos = curr_pos - len(seq) + 1
         if match_key in self.match_records.keys():
-            self.match_records[match_key].increment_count()
+            self.match_records[match_key].add_rhs_position(rhs_pos)
         else:
-            rhs_pos = curr_pos - len(seq) + 1
             self.match_records[match_key] = MatchRecord(seq, lhs, rhs_pos)
 
     def ensure_running_pattern_templates_exist(self, pattern_string):
