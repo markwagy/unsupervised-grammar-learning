@@ -5,6 +5,8 @@ import re, string
 from collections import defaultdict
 
 
+VERBOSE = True
+
 class Node(object):
 
     def __init__(self):
@@ -143,7 +145,7 @@ class PatternTemplate:
     str_idx = -1
     num_chars = 1
 
-    def __init__(self, pattern_def_string: str) -> object:
+    def __init__(self, pattern_def_string: str, is_available=False) -> object:
         self.all_nodes = dict()
         self.start_key = None
         self.pattern_def_string = pattern_def_string
@@ -152,6 +154,7 @@ class PatternTemplate:
         self.status = Status.Idle
         self.matchseq = []  # store the sequenec that is being matched
         self.uid = PatternTemplate.get_uid()
+        self._is_available = is_available
 
     def __str__(self):
         s = self.pattern_def_string
@@ -165,6 +168,12 @@ class PatternTemplate:
         uid = string.ascii_uppercase[PatternTemplate.str_idx + 1]
         PatternTemplate.str_idx += 1
         return uid
+
+    def set_is_available(self, is_available):
+        self._is_available = is_available
+
+    def is_available(self):
+        return self._is_available
 
     def parse(self, pattern_string):
         if not PatternTemplateDef.check(pattern_string):
@@ -285,25 +294,40 @@ class MetaGrammar:
             rhs_pos = curr_pos - len(seq) + 1
             self.match_records[match_key] = MatchRecord(seq, lhs, rhs_pos)
 
+    def ensure_running_pattern_templates_exist(self, pattern_string):
+        # either use an existing and available pattern template or create a new one if necessary
+        if len(self.available_pattern_templates[pattern_string]) == 0:
+            # there aren't any already available so create a new one
+            self.running_pattern_templates[pattern_string].append(PatternTemplate(pattern_string, is_available=False))
+        else:
+            # reuse a pattern template for the new subsequence starting at curr_pos
+            pt = self.available_pattern_templates[pattern_string].pop()
+            pt.set_is_available(False)
+            self.running_pattern_templates[pattern_string].append(pt)
+
     def consume_sequence(self, seq, lhs):
         for curr_pos in range(len(seq)):
             symbol = seq[curr_pos]
             for ps in self.pattern_strings:
-                # either use an existing and available pattern template or create a new one if necessary
-                if len(self.available_pattern_templates[ps]) == 0:
-                    # there aren't any already available so create a new one
-                    self.running_pattern_templates[ps].append(PatternTemplate(ps))
-                else:
-                    # reuse a pattern template for the new subsequence starting at curr_pos
-                    self.running_pattern_templates[ps].append(self.available_pattern_templates[ps].pop())
+                self.ensure_running_pattern_templates_exist(ps)
                 for pt in self.running_pattern_templates[ps]:
                     status = pt.consume_next(symbol)
                     if status == Status.NoMatch:
+                        self.flag_pattern_template_for_reuse(pt, ps)
                         self.reset_patterntemplate_and_make_available(pt, ps)
                     elif status == Status.FoundMatch:
                         match_sequence = pt.get_match_sequence()
                         self.add_match_record(match_sequence, lhs, curr_pos)
+                        if VERBOSE:
+                            print("found sequence: %s" % ' '.join(match_sequence))
+                        self.flag_pattern_template_for_reuse(pt)
+                for pt in self.running_pattern_templates[ps]:
+                    if pt.is_available():
                         self.reset_patterntemplate_and_make_available(pt, ps)
+
+    @staticmethod
+    def flag_pattern_template_for_reuse(pattern_template):
+        pattern_template.set_is_available(True)
 
     def reset_patterntemplate_and_make_available(self, pattern_template, pattern_string):
         pattern_template.reset()
@@ -349,7 +373,7 @@ def nmw_seq():
 
 
 def runner(text):
-    mg = MetaGrammar()
+    mg = MetaGrammar('x-y')
     mg.initialize(text)
     print("\n--- INITIAL")
     mg.print_grammar()

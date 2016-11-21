@@ -8,7 +8,7 @@ class TestMetaGrammar(TestCase):
         seq = list('abab')
         lhs = 'S'
         metagram.consume_sequence(seq, lhs)
-        self.assertEqual(len(metagram.match_records), 1)
+        self.assertEqual(len(metagram.match_records), 2)
 
 
 class TestPatternTeamplateDef(TestCase):
