@@ -1,7 +1,8 @@
 from cfg import CFG
 import json
 import sys
-import re, string
+import re
+import string
 from collections import defaultdict
 
 
@@ -76,7 +77,7 @@ class VarNode(Node):
         new_node._is_final_node = self._is_final_node
         new_node._is_start_node = self._is_start_node
         new_node.set_next(self.get_next())
-        new_node.bind_symbol(symbol)
+        new_node.bind(symbol)
         return new_node
 
 
@@ -138,13 +139,12 @@ class Status:
 # for now, this is just a DFA...
 class PatternTemplate:
     """
-    Class that builds a pattern template architecture -- but not assigning matching symbols.
-    It is the Pattern class that binds match symbols for the architecture created by a
-    pattern template.
+    Class that builds a pattern template architecture and finds match sequences.
     """
 
     str_idx = -1
     num_chars = 1
+    pt_id = 0
 
     def __init__(self, pattern_def_string: str, is_available=False) -> object:
         self.all_nodes = dict()
@@ -154,12 +154,17 @@ class PatternTemplate:
         self.curr_node = self.all_nodes[self.start_key]
         self.status = Status.Idle
         self.matchseq = []  # store the sequenec that is being matched
-        self.uid = PatternTemplate.get_uid()
+        self.uid = PatternTemplate.get_pattern_template_id()
         self._is_available = is_available
 
     def __str__(self):
         s = self.pattern_def_string
         return "(%s) %s" % (self.uid, s)
+
+    @staticmethod
+    def get_pattern_template_id():
+        PatternTemplate.pt_id +=1
+        return PatternTemplate.pt_id
 
     @staticmethod
     def get_uid():
@@ -261,6 +266,10 @@ class MatchRecord:
         self.rhs_position = rhs_position
         self.match_count = 1
 
+    def __str__(self):
+        return "lhs: %s rhs_pos: %d\tcount:%d\t%s" % \
+               (self.lhs, self.rhs_position, self.match_count, [str(s) for s in self.match_sequence])
+
     def increment_count(self):
         self.match_count += 1
 
@@ -284,6 +293,11 @@ class MetaGrammar:
 
     def initialize(self, text):
         self.grammar.load_from_text(text)
+
+    def print_match_records(self):
+        print("\nMATCH RECORDS --")
+        for k in self.match_records.keys():
+            print(str(self.match_records[k]))
 
     def add_match_record(self, seq, lhs, curr_pos):
         # we'll only add the match sequence with relevant information here. leave it to another method for
@@ -325,6 +339,10 @@ class MetaGrammar:
                 for pt in self.running_pattern_templates[ps]:
                     if pt.is_available():
                         self.reset_pattern_template_and_make_available(pt, ps)
+
+    def replace_matches(self):
+        # TODO
+        pass
 
     @staticmethod
     def flag_pattern_template_for_reuse(pattern_template):
