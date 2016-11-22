@@ -14,6 +14,9 @@ class Symbol:
     def __str__(self):
         return "%s" % self.val if self.is_terminal else "<%s>" % self.val
 
+    def __eq__(self, other):
+        return self.val == other.val
+
     def clean(self, sym):
         return sym.replace("'", "")
 
@@ -36,8 +39,9 @@ class CFG:
                                                                           for s in self.rules[self.START_SYMBOL]]))
         keys_no_start = [ki for ki in filter(lambda k: k != self.START_SYMBOL, d.keys())]
         for k in sorted(keys_no_start):
-            rhs_lst = self.rules[str(k)]
-            s += "%s %s %s\n" % (k, CFG.LHS_RHS_SEP, CFG.OR_SEP.join(rhs_lst))
+            rhs_lst = self.rules[k]
+            rhs_str = CFG.OR_SEP.join(CFG.SYMBOL_SEP.join([str(r) for r in rhs]) for rhs in rhs_lst)
+            s += "%s %s %s\n" % (k, CFG.LHS_RHS_SEP, rhs_str)
         return s
 
     def add_from_tuple(self, rhs, lhs):

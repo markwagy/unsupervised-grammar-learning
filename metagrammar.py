@@ -46,7 +46,7 @@ class PatternTemplate:
 
     @staticmethod
     def get_uid():
-        if PatternTemplate.str_idx >= len(string.ascii_uppercase):
+        if PatternTemplate.str_idx > len(string.ascii_uppercase):
             PatternTemplate.str_idx = 0
             PatternTemplate.num_chars += 1
         uid = string.ascii_uppercase[PatternTemplate.str_idx + 1]
@@ -72,7 +72,7 @@ class PatternTemplate:
         var = self.slots[self.current_slot_position]
         return var in self.vars.keys()
 
-    def symbol_matches_current_slot(self, symbol):
+    def symbol_matches_current_slot(self, symbol: Symbol):
         slot_val = self.vars[self.slots[self.current_slot_position]]
         return slot_val == symbol or slot_val == PatternTemplate.WILDCARD
 
@@ -144,9 +144,9 @@ class MatchRecord:
     def __str__(self):
         return "pos %s\tcount:%d\t%s" % \
                ('; '.join([str(gp) for gp in self.grammar_positions]),
-                self.get_match_count(), [str(s) for s in self.match_sequence])
+                self.get_num_matches(), [str(s) for s in self.match_sequence])
 
-    def get_match_count(self):
+    def get_num_matches(self):
         return len(self.grammar_positions)
 
     def add_new_position(self, lhs, rhs_begin, rhs_end):
@@ -203,7 +203,7 @@ class MetaGrammar:
         if match_key in self.match_records.keys():
             self.match_records[match_key].add_new_position(lhs, rhs_begin, curr_pos)
         else:
-            seq_sub = [PatternTemplate.WILDCARD if i in wildcard_idxs else seq[i] for i in range(len(seq))]
+            seq_sub = [Symbol(PatternTemplate.WILDCARD, True) if i in wildcard_idxs else seq[i] for i in range(len(seq))]
             self.match_records[match_key] = MatchRecord(seq_sub, lhs, rhs_begin, curr_pos)
 
     def ensure_running_pattern_templates_exist(self, pattern_string):
@@ -248,7 +248,7 @@ class MetaGrammar:
                 break
             matches = [False for _ in range(len(subsequence))]
             for sub_i in range(0, len(subsequence)):
-                matches[sub_i] = subsequence[sub_i] == sequence[seq_i+sub_i].val or subsequence[sub_i] == PatternTemplate.WILDCARD
+                matches[sub_i] = subsequence[sub_i] == sequence[seq_i+sub_i] or subsequence[sub_i] == Symbol(PatternTemplate.WILDCARD, True)
             if all(matches):
                 new_sequence.append(replacement_symbol)
                 seq_i += len(subsequence)
@@ -263,15 +263,18 @@ class MetaGrammar:
         mr_keys_srt = sorted(mr_keys, key=lambda x: self.match_records[x].count)
         new_rules = defaultdict(list)
         for k in mr_keys_srt:
+            # ensure that we have at least 2 matches to make this a new rule
+            if self.match_records[k].get_num_matches() <= 1:
+                continue
             new_val = PatternTemplate.get_uid()
             match_record = self.match_records[k]
             for lhs in self.grammar.rules.keys():
                 for rhs in self.grammar.rules[lhs]:
                     new_rhs = MetaGrammar.replace_all_instances(rhs, match_record.match_sequence, Symbol(new_val, is_terminal=False))
                     self.grammar.rules[lhs] = [new_rhs if r == rhs else r for r in self.grammar.rules[lhs]]
-                    new_rules[new_val] = [Symbol(v) for v in match_record.match_sequence]
+                    new_rules[new_val] = match_record.match_sequence[:]
         for new_rule_lhs in new_rules.keys():
-            self.grammar.rules[new_rule_lhs].append(new_rules[new_rule_lhs])
+            self.grammar.rules[new_rule_lhs] = [new_rules[new_rule_lhs]]
         foo = 1
 
     def reset_matches(self):
@@ -282,13 +285,13 @@ class MetaGrammar:
             if VERBOSE:
                 print("LHS: %s" % rule_lhs)
             for rhs in self.grammar.rules[rule_lhs]:
-                vals = [sym.val for sym in rhs]
                 if VERBOSE:
-                    print("RHS: %s" % vals)
-                self.consume_sequence(vals, rule_lhs)
+                    print("RHS: %s" % [sym.val for sym in rhs])
+                self.consume_sequence(rhs, rule_lhs)
 
     def matches_found(self):
-        return len(list(self.match_records.keys())) > 0
+        filtered_list = list(filter(lambda x: self.match_records[x].get_num_matches() > 1, list(self.match_records.keys())))
+        return len(filtered_list) > 0
 
     @staticmethod
     def flag_pattern_template_for_reuse(pattern_template):
@@ -304,6 +307,7 @@ class MetaGrammar:
         while self.matches_found():
             self.print_match_records()
             self.replace_matches()
+            self.print_grammar()
             self.reset_matches()
             self.get_matches()
 
