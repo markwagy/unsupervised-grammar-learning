@@ -66,10 +66,11 @@ class CFG:
     def flatten(list_of_lists):
         if isinstance(list_of_lists, Symbol):
             return list_of_lists
-        elif isinstance(list_of_lists[0], Symbol):
-            return list_of_lists
+        #elif isinstance(list_of_lists[0], Symbol):
+        #    return list_of_lists
         else:
-            return [a for sub in list_of_lists for a in CFG.flatten(sub)]
+            sub = [CFG.flatten(lst) for lst in list_of_lists]
+            return sub
 
     def generate(self) -> list:
         if CFG.START_SYMBOL not in self.rules.keys():

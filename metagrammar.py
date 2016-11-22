@@ -278,18 +278,19 @@ class MetaGrammar:
             if self.match_records[k].get_num_matches() <= 1:
                 continue
             new_val = PatternTemplate.get_uid()
+            newval_sym = Symbol(new_val, is_terminal=False)
             match_record = self.match_records[k]
             for lhs in self.grammar.rules.keys():
                 for rhs in self.grammar.rules[lhs]:
-                    wild_sym = Symbol(new_val, is_terminal=False)
-                    new_rhs, wildcard_matches = MetaGrammar.replace_all_instances(rhs, match_record.match_sequence, wild_sym)
+                    new_rhs, wildcard_matches = MetaGrammar.replace_all_instances(rhs, match_record.match_sequence, newval_sym)
+                    found_match = len(new_rhs) != len(rhs) or any([new_rhs[i] != rhs[i] for i in range(len(rhs))])
                     self.grammar.rules[lhs] = [new_rhs if r == rhs else r for r in self.grammar.rules[lhs]]
                     if len(wildcard_matches) > 0:
                         new_wildcard_rule_lhs = PatternTemplate.get_uid()
                         new_rules[new_wildcard_rule_lhs] = [[w] for w in wildcard_matches]
                         new_rules[new_val] = [[sym if sym != Symbol(PatternTemplate.WILDCARD, True) else Symbol(new_wildcard_rule_lhs, False)
                                                for sym in match_record.match_sequence[:]]]
-                    else:
+                    elif found_match:
                         new_rules[new_val] = [[sym for sym in match_record.match_sequence[:]]]
         for new_rule_lhs in new_rules.keys():
             self.grammar.rules[new_rule_lhs] = new_rules[new_rule_lhs]
