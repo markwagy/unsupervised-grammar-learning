@@ -138,7 +138,7 @@ class MatchRecord:
     def __init__(self, match_sequence, lhs, rhs_begin, rhs_end):
         self.match_sequence = match_sequence
         self.grammar_positions = [GrammarPosition(lhs, rhs_begin, rhs_end)]
-        self.count = MatchRecord.mr_count
+        self._count = MatchRecord.mr_count
         MatchRecord.mr_count += 1
 
     def __str__(self):
@@ -271,7 +271,7 @@ class MetaGrammar:
     def replace_matches(self):
         # for now, replace by "first encountered"
         mr_keys = list(self.match_records.keys())
-        mr_keys_srt = sorted(mr_keys, key=lambda x: self.match_records[x].count)
+        mr_keys_srt = sorted(mr_keys, key=lambda x: self.match_records[x].get_num_matches(), reverse=True)
         new_rules = defaultdict(list)
         for k in mr_keys_srt:
             # ensure that we have at least 2 matches to make this a new rule
@@ -284,10 +284,13 @@ class MetaGrammar:
                     wild_sym = Symbol(new_val, is_terminal=False)
                     new_rhs, wildcard_matches = MetaGrammar.replace_all_instances(rhs, match_record.match_sequence, wild_sym)
                     self.grammar.rules[lhs] = [new_rhs if r == rhs else r for r in self.grammar.rules[lhs]]
-                    new_wildcard_rule_lhs = PatternTemplate.get_uid()
-                    new_rules[new_wildcard_rule_lhs] = [[w] for w in wildcard_matches]
-                    new_rules[new_val] = [[sym if sym != Symbol(PatternTemplate.WILDCARD, True) else Symbol(new_wildcard_rule_lhs, False)
-                                           for sym in match_record.match_sequence[:]]]
+                    if len(wildcard_matches) > 0:
+                        new_wildcard_rule_lhs = PatternTemplate.get_uid()
+                        new_rules[new_wildcard_rule_lhs] = [[w] for w in wildcard_matches]
+                        new_rules[new_val] = [[sym if sym != Symbol(PatternTemplate.WILDCARD, True) else Symbol(new_wildcard_rule_lhs, False)
+                                               for sym in match_record.match_sequence[:]]]
+                    else:
+                        new_rules[new_val] = [[sym for sym in match_record.match_sequence[:]]]
         for new_rule_lhs in new_rules.keys():
             self.grammar.rules[new_rule_lhs] = new_rules[new_rule_lhs]
         foo = 1
