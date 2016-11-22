@@ -5,7 +5,7 @@ import string
 from collections import defaultdict
 import re
 
-VERBOSE = True
+VERBOSE = False
 
 
 class Status:
@@ -46,10 +46,10 @@ class PatternTemplate:
 
     @staticmethod
     def get_uid():
-        if PatternTemplate.str_idx > len(string.ascii_uppercase):
-            PatternTemplate.str_idx = 0
+        if (PatternTemplate.str_idx + 1) >= len(string.ascii_uppercase):
+            PatternTemplate.str_idx = -1
             PatternTemplate.num_chars += 1
-        uid = string.ascii_uppercase[PatternTemplate.str_idx + 1]
+        uid = ''.join([string.ascii_uppercase[PatternTemplate.str_idx + 1] for _ in range(PatternTemplate.num_chars)])
         PatternTemplate.str_idx += 1
         return uid
 
@@ -74,7 +74,7 @@ class PatternTemplate:
 
     def symbol_matches_current_slot(self, symbol: Symbol):
         slot_val = self.vars[self.slots[self.current_slot_position]]
-        return slot_val == symbol or slot_val == PatternTemplate.WILDCARD
+        return slot_val == symbol or slot_val == Symbol(PatternTemplate.WILDCARD, True)
 
     def at_last_slot(self):
         return (len(self.slots) - 1) == self.current_slot_position
@@ -359,10 +359,13 @@ def a_few_sentences():
 
 def cfg_text():
     cfg = CFG()
-    cfg.load('simplegrammar.cfg')
+    cfg.load('resources/simplegrammar.cfg')
     num_sentences = 40
-    sents = [' '.join(cfg.generate()) for _ in range(num_sentences)]
-    return '.'.join(sents)
+    sents = []
+    for i in range(num_sentences):
+        sents.append(cfg.generate())
+    sents_jn = ' '.join(sents)
+    return sents_jn
 
 
 def nmw_seq():
@@ -387,13 +390,14 @@ def runner(text):
 
 
 if __name__ == '__main__':
-    sys.argv[1] = '1'
+    sys.argv[1] = '5'
     if sys.argv[1] == '1':
         text = simple_text()
     elif sys.argv[1] == '2':
         text = a_few_sentences()
-    elif sys.argv[1] == '4':
+    elif sys.argv[1] == '3':
         text = nmw_seq()
     else:
         text = cfg_text()
     runner(text)
+    print("done")

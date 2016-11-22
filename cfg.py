@@ -1,8 +1,8 @@
 import string
-from collections import defaultdict
 import random
-from six import string_types
 import re
+from collections import defaultdict
+import collections
 
 
 class Symbol:
@@ -64,19 +64,17 @@ class CFG:
 
     @staticmethod
     def flatten(list_of_lists):
-        if isinstance(list_of_lists, Symbol):
-            return list_of_lists
-        #elif isinstance(list_of_lists[0], Symbol):
-        #    return list_of_lists
-        else:
-            sub = [CFG.flatten(lst) for lst in list_of_lists]
-            return sub
+        for el in list_of_lists:
+            if isinstance(el, collections.Iterable) and not isinstance(el, Symbol):
+                yield from CFG.flatten(el)
+            else:
+                yield el
 
     def generate(self) -> list:
         if CFG.START_SYMBOL not in self.rules.keys():
             raise Exception("problem with initial rule")
         lols = self.get_next(Symbol(CFG.START_SYMBOL, is_terminal=False))
-        flat_lols = CFG.flatten(lols)
+        flat_lols = list(CFG.flatten(lols))
         return ' '.join([f.val for f in flat_lols])
 
     @staticmethod
@@ -95,8 +93,9 @@ class CFG:
         return rhss
 
     def load_from_text(self, text):
-        cleaned_text = re.sub(r"[^\w\s]", "", text.strip())
-        self.rules[CFG.START_SYMBOL] = self.parse_rhs_or_clauses(text)
+        cleaned_text = re.sub(r"[^\w ]", "", text.strip())
+        cleaned_text = re.sub(r"  *", " ", cleaned_text)
+        self.rules[CFG.START_SYMBOL] = self.parse_rhs_or_clauses(cleaned_text)
 
     def load(self, filename):
         f = open(filename, 'r')
@@ -106,7 +105,12 @@ class CFG:
             self.rules[lhs.strip()] = self.parse_rhs_or_clauses(rhs_str)
 
     def to_serializable(self):
-        return self.rules
+        ser = dict()
+        for lhs in self.rules.keys():
+            ser[lhs] = []
+            for rhs in self.rules[lhs]:
+                ser[lhs].append([sym.val for sym in rhs])
+        return ser
 
     @staticmethod
     def from_dict(grammar_dict):
