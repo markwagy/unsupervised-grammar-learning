@@ -232,30 +232,41 @@ class MetaGrammar:
                         wildcard_idxs = self.get_wildcard_idxs(ps)
                         self.add_match_record(match_sequence, lhs, curr_pos, wildcard_idxs)
                         if VERBOSE:
-                            print("found sequence: %s" % ' '.join([str(ms) for ms in match_sequence]))
+                            print("  --- found sequence: %s" % ' '.join([str(ms) for ms in match_sequence]))
                         self.flag_pattern_template_for_reuse(patem)
                 for patem in self.running_pattern_templates[ps]:
                     if patem.is_available():
                         self.reset_pattern_template_and_make_available(patem, ps)
 
     @staticmethod
+    def get_wildcard_match_vals(match_sequence, replacement_sequence):
+        wildcard_matches = [replacement_sequence[i] for i in range(len(replacement_sequence))
+                            if match_sequence[i] == Symbol(PatternTemplate.WILDCARD, True)]
+        return wildcard_matches
+
+    @staticmethod
     def replace_all_instances(sequence, subsequence, replacement_symbol: Symbol) -> list:
         new_sequence = []
         seq_i = 0
+        wildcard_matches = []
         while seq_i < len(sequence):
             if (seq_i + len(subsequence)) > len(sequence):
                 new_sequence.extend(sequence[seq_i:])
                 break
             matches = [False for _ in range(len(subsequence))]
             for sub_i in range(0, len(subsequence)):
-                matches[sub_i] = subsequence[sub_i] == sequence[seq_i+sub_i] or subsequence[sub_i] == Symbol(PatternTemplate.WILDCARD, True)
+                matches[sub_i] = subsequence[sub_i] == sequence[seq_i+sub_i] or \
+                                 subsequence[sub_i] == Symbol(PatternTemplate.WILDCARD, True)
             if all(matches):
+                if Symbol(PatternTemplate.WILDCARD, True) in subsequence:
+                    match_sequence = sequence[seq_i:seq_i+len(subsequence)]
+                    wildcard_matches.extend(MetaGrammar.get_wildcard_match_vals(subsequence, match_sequence))
                 new_sequence.append(replacement_symbol)
                 seq_i += len(subsequence)
             else:
                 new_sequence.append(sequence[seq_i])
                 seq_i += 1
-        return new_sequence
+        return new_sequence, wildcard_matches
 
     def replace_matches(self):
         # for now, replace by "first encountered"
@@ -270,11 +281,14 @@ class MetaGrammar:
             match_record = self.match_records[k]
             for lhs in self.grammar.rules.keys():
                 for rhs in self.grammar.rules[lhs]:
-                    new_rhs = MetaGrammar.replace_all_instances(rhs, match_record.match_sequence, Symbol(new_val, is_terminal=False))
+                    wild_sym = Symbol(new_val, is_terminal=False)
+                    new_rhs, wildcard_matches = MetaGrammar.replace_all_instances(rhs, match_record.match_sequence, wild_sym)
                     self.grammar.rules[lhs] = [new_rhs if r == rhs else r for r in self.grammar.rules[lhs]]
-                    new_rules[new_val] = match_record.match_sequence[:]
+                    new_rules[new_val] = [match_record.match_sequence[:]]
+                    new_wildcard_rule_lhs = PatternTemplate.get_uid()
+                    new_rules[new_wildcard_rule_lhs] = [[w] for w in wildcard_matches]
         for new_rule_lhs in new_rules.keys():
-            self.grammar.rules[new_rule_lhs] = [new_rules[new_rule_lhs]]
+            self.grammar.rules[new_rule_lhs] = new_rules[new_rule_lhs]
         foo = 1
 
     def reset_matches(self):
@@ -312,7 +326,7 @@ class MetaGrammar:
             self.get_matches()
 
     def print_grammar(self):
-        print(str(self.grammar))
+        print("\nGRAMMAR --\n%s" % str(self.grammar))
 
     def save_grammar(self, filename="metag.json"):
         fh = open(filename, 'w')
