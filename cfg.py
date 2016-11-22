@@ -35,7 +35,7 @@ class CFG:
 
     def __str__(self):
         d = self.to_serializable()
-        s = "%s %s %s\n" % (self.START_SYMBOL, CFG.LHS_RHS_SEP, '|'.join([' '.join([x.val for x in s])
+        s = "%s %s %s\n" % (self.START_SYMBOL, CFG.LHS_RHS_SEP, CFG.OR_SEP.join([CFG.SYMBOL_SEP.join([str(x) for x in s])
                                                                           for s in self.rules[self.START_SYMBOL]]))
         keys_no_start = [ki for ki in filter(lambda k: k != self.START_SYMBOL, d.keys())]
         for k in sorted(keys_no_start):

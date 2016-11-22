@@ -284,9 +284,10 @@ class MetaGrammar:
                     wild_sym = Symbol(new_val, is_terminal=False)
                     new_rhs, wildcard_matches = MetaGrammar.replace_all_instances(rhs, match_record.match_sequence, wild_sym)
                     self.grammar.rules[lhs] = [new_rhs if r == rhs else r for r in self.grammar.rules[lhs]]
-                    new_rules[new_val] = [match_record.match_sequence[:]]
                     new_wildcard_rule_lhs = PatternTemplate.get_uid()
                     new_rules[new_wildcard_rule_lhs] = [[w] for w in wildcard_matches]
+                    new_rules[new_val] = [[sym if sym != Symbol(PatternTemplate.WILDCARD, True) else Symbol(new_wildcard_rule_lhs, False)
+                                           for sym in match_record.match_sequence[:]]]
         for new_rule_lhs in new_rules.keys():
             self.grammar.rules[new_rule_lhs] = new_rules[new_rule_lhs]
         foo = 1
@@ -302,6 +303,7 @@ class MetaGrammar:
                 if VERBOSE:
                     print("RHS: %s" % [sym.val for sym in rhs])
                 self.consume_sequence(rhs, rule_lhs)
+                self.reset_all_pattern_templates()
 
     def matches_found(self):
         filtered_list = list(filter(lambda x: self.match_records[x].get_num_matches() > 1, list(self.match_records.keys())))
@@ -315,6 +317,11 @@ class MetaGrammar:
         pattern_template.reset()
         self.running_pattern_templates[pattern_string].remove(pattern_template)
         self.available_pattern_templates[pattern_string].append(pattern_template)
+
+    def reset_all_pattern_templates(self):
+        for ps_key in self.running_pattern_templates.keys():
+            for patem in self.running_pattern_templates[ps_key]:
+                self.reset_pattern_template_and_make_available(patem, ps_key)
 
     def run(self):
         self.get_matches()
