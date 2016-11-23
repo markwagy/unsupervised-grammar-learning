@@ -5,7 +5,7 @@ import string
 from collections import defaultdict
 import re
 
-VERBOSE = False
+VERBOSE = True
 
 
 class Status:
@@ -37,7 +37,7 @@ class PatternTemplate:
 
     def __str__(self):
         s = self.pattern_def_string
-        return "(%s) %s" % (self.uid, s)
+        return "(%s) %s [%s]" % (self.uid, s, ",".join(["%s:%s" % (k, self.vars[k]) for k in self.vars.keys()]))
 
     @staticmethod
     def get_pattern_template_id():
@@ -79,9 +79,18 @@ class PatternTemplate:
     def at_last_slot(self):
         return (len(self.slots) - 1) == self.current_slot_position
 
+    def symbol_already_exists(self, symbol):
+        return symbol in [self.vars[k] for k in self.vars.keys()]
+
     def consume_next(self, sym):
-        if not self.current_var_is_bound():
+        # note that this needs to be checked before binding
+        already_exists = self.symbol_already_exists(sym)
+        if not self.current_var_is_bound() and not already_exists:
             self.bind_var(sym, self.slots[self.current_slot_position])
+        elif already_exists and not self.current_var_is_bound():
+            # if the symbol already exists but does not match the current slot, then it isn't a match
+            self.advance_slot_position()  # probably not necessary, but just in case
+            return Status.NoMatch
         at_last_slot = self.at_last_slot()
         symbol_does_match = self.symbol_matches_current_slot(sym)
         if at_last_slot:
@@ -142,9 +151,9 @@ class MatchRecord:
         MatchRecord.mr_count += 1
 
     def __str__(self):
-        return "pos %s\tcount:%d\t%s" % \
-               ('; '.join([str(gp) for gp in self.grammar_positions]),
-                self.get_num_matches(), [str(s) for s in self.match_sequence])
+        return "count:%d\t%s\t\tpos %s" % \
+                (self.get_num_matches(), [str(s) for s in self.match_sequence],
+                 '; '.join([str(gp) for gp in self.grammar_positions]))
 
     def get_num_matches(self):
         return len(self.grammar_positions)
@@ -184,7 +193,8 @@ class MetaGrammar:
     def print_match_records(self):
         print("\nMATCH RECORDS --")
         for k in self.match_records.keys():
-            print(str(self.match_records[k]))
+            if self.match_records[k].get_num_matches() > 1:
+                print(str(self.match_records[k]))
 
     @staticmethod
     def get_wildcard_idxs(pattern_string):
@@ -226,13 +236,13 @@ class MetaGrammar:
                     status = patem.consume_next(symbol)
                     if status == Status.NoMatch:
                         self.flag_pattern_template_for_reuse(patem)
-                        self.reset_pattern_template_and_make_available(patem, ps)
+                        #self.reset_pattern_template_and_make_available(patem, ps)
                     elif status == Status.FoundMatch:
                         match_sequence = patem.get_match_sequence()
                         wildcard_idxs = self.get_wildcard_idxs(ps)
                         self.add_match_record(match_sequence, lhs, curr_pos, wildcard_idxs)
                         if VERBOSE:
-                            print("  --- found sequence: %s" % ' '.join([str(ms) for ms in match_sequence]))
+                            print("  --- found sequence: '%s' for pattern '%s'" % (' '.join([str(ms) for ms in match_sequence]), ps))
                         self.flag_pattern_template_for_reuse(patem)
                 for patem in self.running_pattern_templates[ps]:
                     if patem.is_available():
@@ -272,8 +282,9 @@ class MetaGrammar:
         # for now, replace by "first encountered"
         mr_keys = list(self.match_records.keys())
         mr_keys_srt = sorted(mr_keys, key=lambda x: self.match_records[x].get_num_matches(), reverse=True)
+        mr_keys_fil = list(filter(lambda x: self.match_records[x].get_num_matches() > 1, mr_keys_srt))
         new_rules = defaultdict(list)
-        for k in mr_keys_srt:
+        for k in mr_keys_fil:
             # ensure that we have at least 2 matches to make this a new rule
             if self.match_records[k].get_num_matches() <= 1:
                 continue
@@ -369,11 +380,12 @@ def cfg_text():
 
 
 def nmw_seq():
-    return list('abcdbc')
+    return 'a b c d b c b c b c'
+    #return 'a b a b'
 
 
 def runner(text):
-    mg = MetaGrammar(['x*'])
+    mg = MetaGrammar(['xy', 'x*'])
     mg.initialize(text)
     print("\n--- INITIAL")
     mg.print_grammar()
@@ -382,7 +394,7 @@ def runner(text):
     print("\n--- FINAL")
     mg.print_grammar()
     print("\n--- RANDOM SENTENCES")
-    NUM_SENTS = 20
+    NUM_SENTS = 4
     for i in range(NUM_SENTS):
         exp_rand = mg.grammar.generate()
         print("* %s\n" % exp_rand)
@@ -390,7 +402,7 @@ def runner(text):
 
 
 if __name__ == '__main__':
-    sys.argv[1] = '5'
+    sys.argv[1] = '1'
     if sys.argv[1] == '1':
         text = simple_text()
     elif sys.argv[1] == '2':
