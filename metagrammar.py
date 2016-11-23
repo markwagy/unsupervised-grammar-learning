@@ -139,6 +139,12 @@ class GrammarPosition:
     def __str__(self):
         return "@%s(%d, %d)" % (self.lhs, self.rhs_begin, self.rhs_end)
 
+    def __eq__(self, other):
+        same_position = self.rhs_begin == other.rhs_begin and self.rhs_end == other.rhs_end
+        overlapped_positions = (self.rhs_begin <= other.rhs_begin <= self.rhs_end) or \
+                               (self.rhs_begin <= other.rhs_end <= self.rhs_end)
+        return self.lhs == other.lhs and (same_position or overlapped_positions)
+
 
 class MatchRecord:
 
@@ -155,8 +161,20 @@ class MatchRecord:
                 (self.get_num_matches(), [str(s) for s in self.match_sequence],
                  '; '.join([str(gp) for gp in self.grammar_positions]))
 
+    @staticmethod
+    def dedupe_grammar_positions(grammar_positions):
+        """
+        ensure that the grammar positions do not overlap and are the not the same in any other regard
+        """
+        ddp_poss = []
+        for gp in grammar_positions:
+            if not gp in ddp_poss:
+                ddp_poss.append(gp)
+        return ddp_poss
+
     def get_num_matches(self):
-        return len(self.grammar_positions)
+        ddp_pos = MatchRecord.dedupe_grammar_positions(self.grammar_positions)
+        return len(ddp_pos)
 
     def add_new_position(self, lhs, rhs_begin, rhs_end):
         self.grammar_positions.append(GrammarPosition(lhs, rhs_begin, rhs_end))
@@ -385,7 +403,7 @@ def nmw_seq():
 
 
 def runner(text):
-    mg = MetaGrammar(['xy', 'x*'])
+    mg = MetaGrammar(['xy', 'xx'])
     mg.initialize(text)
     print("\n--- INITIAL")
     mg.print_grammar()
@@ -402,7 +420,7 @@ def runner(text):
 
 
 if __name__ == '__main__':
-    sys.argv[1] = '1'
+    sys.argv[1] = '3'
     if sys.argv[1] == '1':
         text = simple_text()
     elif sys.argv[1] == '2':

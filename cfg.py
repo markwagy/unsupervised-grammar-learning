@@ -7,15 +7,23 @@ import collections
 
 class Symbol:
 
+    uid = 0
+
     def __init__(self, val, is_terminal):
         self.val = self.clean(val)
         self.is_terminal = is_terminal
+        self.uid = Symbol.get_uid()
 
     def __str__(self):
         return "%s" % self.val if self.is_terminal else "<%s>" % self.val
 
     def __eq__(self, other):
         return self.val == other.val
+
+    @staticmethod
+    def get_uid():
+        Symbol.uid += 1
+        return Symbol.uid
 
     def clean(self, sym):
         return sym.replace("'", "")
