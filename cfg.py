@@ -33,7 +33,7 @@ class CFG:
 
     OR_SEP = '|'
     SYMBOL_SEP = ' '
-    START_SYMBOL = 'S'
+    START_SYMBOL = '_S_'
     LHS_RHS_SEP = '->'
 
     def __init__(self):
@@ -101,7 +101,7 @@ class CFG:
         return rhss
 
     def load_from_text(self, text):
-        cleaned_text = re.sub(r"[!?.]", CFG.OR_SEP, text)
+        cleaned_text = re.sub(r"[!?.]", CFG.OR_SEP, text.lower())
         cleaned_text = re.sub(r"[^\w.!?%s ]" % CFG.OR_SEP, "", cleaned_text.strip())
         cleaned_text = re.sub(r"  *", " ", cleaned_text)
         self.rules[CFG.START_SYMBOL] = self.parse_rhs_or_clauses(cleaned_text)

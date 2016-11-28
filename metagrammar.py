@@ -4,6 +4,7 @@ import sys
 import string
 from collections import defaultdict
 import re
+import nltk
 
 VERBOSE = True
 
@@ -357,16 +358,23 @@ class MetaGrammar:
                 self.reset_pattern_template_and_make_available(patem, ps_key)
 
     def run(self):
+        fh = open("metagrammar_run.txt", 'w')
+        self.print_to_file(fh)
         self.get_matches()
         while self.matches_found():
             self.print_match_records()
             self.replace_matches()
+            self.print_to_file(fh)
             self.print_grammar()
             self.reset_matches()
             self.get_matches()
+        fh.close()
 
     def print_grammar(self):
         print("\nGRAMMAR --\n%s" % str(self.grammar))
+
+    def print_to_file(self, fh):
+        fh.write("\nGRAMMAR --\n%s" % str(self.grammar))
 
     def save_grammar(self, filename="metag.json"):
         fh = open(filename, 'w')
@@ -402,8 +410,16 @@ def nmw_seq():
     #return 'a b a b'
 
 
+def remove_non_wordspacechars(text):
+    return re.sub(r"[^\w\s]", "", text)
+
+def sense_and_sensibility(how_many=400):
+    sents = [' '.join(s) for s in nltk.corpus.gutenberg.sents('austen-sense.txt')][2:how_many]
+    return '.'.join([remove_non_wordspacechars(s) for s in sents])
+
+
 def runner(text):
-    mg = MetaGrammar(['xy', 'x*'])
+    mg = MetaGrammar(['x*'])
     mg.initialize(text)
     print("\n--- INITIAL")
     mg.print_grammar()
@@ -420,13 +436,17 @@ def runner(text):
 
 
 if __name__ == '__main__':
-    sys.argv[1] = '2'
-    if sys.argv[1] == '1':
+    sys.argv[1] = 'sense'
+    if sys.argv[1] == 'simple':
         text = simple_text()
-    elif sys.argv[1] == '2':
+    elif sys.argv[1] == 'few':
         text = a_few_sentences()
-    elif sys.argv[1] == '3':
+    elif sys.argv[1] == 'nmw':
         text = nmw_seq()
+    elif sys.argv[1] == 'cfg':
+        text = cfg_text()
+    elif sys.argv[1] == 'sense':
+        text = sense_and_sensibility(how_many=5)
     else:
         text = cfg_text()
     runner(text)
