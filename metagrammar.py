@@ -205,7 +205,7 @@ class MetaGrammar:
 
     @staticmethod
     def clean(text):
-        text_clean = re.sub(r"[^\w\s]", "", text)
+        text_clean = re.sub(r"[^\w\s.!?]", "", text)
         return text_clean
 
     def print_match_records(self):
@@ -393,17 +393,17 @@ def cfg_text():
     sents = []
     for i in range(num_sentences):
         sents.append(cfg.generate())
-    sents_jn = ' '.join(sents)
-    return sents_jn
+    #sents_jn = ' '.join(sents)
+    return sents
 
 
 def nmw_seq():
-    return 'a b c d b c b c b c'
+    return 'a b c d b c b c b c b c'
     #return 'a b a b'
 
 
 def runner(text):
-    mg = MetaGrammar(['xy', 'xx'])
+    mg = MetaGrammar(['xy', 'x*'])
     mg.initialize(text)
     print("\n--- INITIAL")
     mg.print_grammar()
@@ -420,7 +420,7 @@ def runner(text):
 
 
 if __name__ == '__main__':
-    sys.argv[1] = '3'
+    sys.argv[1] = '2'
     if sys.argv[1] == '1':
         text = simple_text()
     elif sys.argv[1] == '2':

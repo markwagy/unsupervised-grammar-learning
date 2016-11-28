@@ -96,12 +96,13 @@ class CFG:
         return rhs
 
     def parse_rhs_or_clauses(self, rhs_ors):
-        rhs_str_or = rhs_ors.split(CFG.OR_SEP)
+        rhs_str_or = filter(lambda x: len(x) > 0, rhs_ors.split(CFG.OR_SEP))
         rhss = [self.parse_rhs_clauses(rhs_str) for rhs_str in rhs_str_or]
         return rhss
 
     def load_from_text(self, text):
-        cleaned_text = re.sub(r"[^\w ]", "", text.strip())
+        cleaned_text = re.sub(r"[!?.]", CFG.OR_SEP, text)
+        cleaned_text = re.sub(r"[^\w.!?%s ]" % CFG.OR_SEP, "", cleaned_text.strip())
         cleaned_text = re.sub(r"  *", " ", cleaned_text)
         self.rules[CFG.START_SYMBOL] = self.parse_rhs_or_clauses(cleaned_text)
 
@@ -132,7 +133,7 @@ class CFG:
 
 if __name__ == '__main__':
     cfg = CFG()
-    cfg.load('resources/mygrammar.cfg')
+    cfg.load('resources/simplegrammar.cfg')
     num_sentences = 20
     fh = open('./cfg_generated_sentences.txt', 'w')
     gen = cfg.generate()
