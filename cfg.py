@@ -62,7 +62,9 @@ class CFG:
     def match(self, lhs: Symbol) -> list:
         if lhs.is_terminal:
             return lhs
-        or_rules = self.rules[lhs.val.strip()]
+        or_rules = self.rules[lhs.val]
+        if len(or_rules) == 0:
+            raise Exception("Can't find %s in the rules" % lhs.val)
         rule_choice = random.choice(or_rules)
         return rule_choice
 

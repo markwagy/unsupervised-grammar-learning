@@ -23,7 +23,7 @@ class PatternTemplate:
     """
 
     str_idx = -1
-    num_chars = 1
+    id_num = 0
     pt_id = 0
     WILDCARD = '*'
 
@@ -48,9 +48,9 @@ class PatternTemplate:
     @staticmethod
     def get_uid():
         if (PatternTemplate.str_idx + 1) >= len(string.ascii_uppercase):
-            PatternTemplate.str_idx = -1
-            PatternTemplate.num_chars += 1
-        uid = ''.join([string.ascii_uppercase[PatternTemplate.str_idx + 1] for _ in range(PatternTemplate.num_chars)])
+            PatternTemplate.id_num += 1
+            PatternTemplate.str_idx = 0
+        uid = "%s_%d" % (string.ascii_uppercase[PatternTemplate.str_idx + 1], PatternTemplate.id_num)
         PatternTemplate.str_idx += 1
         return uid
 
@@ -428,10 +428,14 @@ def runner(text):
     print("\n--- FINAL")
     mg.print_grammar()
     print("\n--- RANDOM SENTENCES")
-    NUM_SENTS = 4
+    NUM_SENTS = 20
+    fh_randsents = open('metagrammar_random_sentences.txt', 'w')
     for i in range(NUM_SENTS):
         exp_rand = mg.grammar.generate()
-        print("* %s\n" % exp_rand)
+        s = "* %s\n" % exp_rand
+        print(s)
+        fh_randsents.write(s)
+    fh_randsents.close()
     mg.save_grammar('simplegrammar.json')
 
 
@@ -446,7 +450,7 @@ if __name__ == '__main__':
     elif sys.argv[1] == 'cfg':
         text = cfg_text()
     elif sys.argv[1] == 'sense':
-        text = sense_and_sensibility(how_many=5)
+        text = sense_and_sensibility(how_many=500)
     else:
         text = cfg_text()
     runner(text)
