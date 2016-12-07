@@ -35,6 +35,7 @@ class CFG:
     SYMBOL_SEP = ' '
     START_SYMBOL = '_S_'
     LHS_RHS_SEP = '->'
+    _uid = 0
 
     def __init__(self):
         self.rules = defaultdict(lambda: '')
@@ -80,12 +81,31 @@ class CFG:
             else:
                 yield el
 
+    @staticmethod
+    def get_uid():
+        CFG._uid += 1
+        return str(CFG._uid)
+
+    def to_serializable_tree_helper(self, lols, so_far):
+        pass
+
+    @staticmethod
+    def to_serializeable_tree(generated_lols, parent="null"):
+        name = CFG.get_uid()
+        d = dict()
+        vals = [CFG.to_serializeable_tree(x, name) if isinstance(x, list) else {'name': x.val, 'parent': parent} for x in generated_lols]
+        d['name'] = name
+        d['children'] = vals
+        d['parent'] = parent
+        return d
+
     def generate(self) -> list:
         if CFG.START_SYMBOL not in self.rules.keys():
             raise Exception("problem with initial rule")
         lols = self.get_next(Symbol(CFG.START_SYMBOL, is_terminal=False))
         flat_lols = list(CFG.flatten(lols))
-        return ' '.join([f.val for f in flat_lols])
+        tree_lols = CFG.to_serializeable_tree(lols)
+        return {'flat': ' '.join([f.val for f in flat_lols]), 'tree': tree_lols}
 
     @staticmethod
     def is_terminal(sym: Symbol) -> bool:
@@ -139,8 +159,8 @@ if __name__ == '__main__':
     num_sentences = 20
     fh = open('./cfg_generated_sentences.txt', 'w')
     gen = cfg.generate()
-    print(gen)
-    str = '. '.join([' '.join(cfg.generate()) for _ in range(10)]) + "."
+    print(gen.flat)
+    str = '. '.join([' '.join(cfg.generate()['flat']) for _ in range(10)]) + "."
     fh.write(str)
     fh.close()
     print('write %d random sentences' % num_sentences)

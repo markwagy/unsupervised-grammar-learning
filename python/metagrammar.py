@@ -437,18 +437,25 @@ def runner(text):
     mg.print_grammar()
     print("\n--- RANDOM SENTENCES")
     NUM_SENTS = 20
+    gen_trees = []
     fh_randsents = open('metagrammar_random_sentences.txt', 'w')
+    fh_randtrees = open('metagrammar_random_trees.json', 'w')
     for i in range(NUM_SENTS):
         exp_rand = mg.grammar.generate()
-        s = "* %s\n" % exp_rand
+        s = "* %s\n" % exp_rand['flat']
+        t = exp_rand['tree']
         print(s)
+        print(t)
+        gen_trees.append(t)
         fh_randsents.write(s)
+    fh_randtrees.write(json.dumps(gen_trees, indent=2))
+    fh_randtrees.close()
     fh_randsents.close()
     mg.save_grammar('simplegrammar.json')
 
 
 if __name__ == '__main__':
-    sys.argv[1] = 'nmw'
+    sys.argv[1] = 'sense'
     if sys.argv[1] == 'simple':
         text = simple_text()
     elif sys.argv[1] == 'few':
@@ -458,7 +465,7 @@ if __name__ == '__main__':
     elif sys.argv[1] == 'cfg':
         text = cfg_text()
     elif sys.argv[1] == 'sense':
-        text = sense_and_sensibility(how_many=500)
+        text = sense_and_sensibility(how_many=5)
     else:
         text = cfg_text()
     runner(text)
