@@ -4,6 +4,8 @@
 const PEG = require('pegjs');
 
 
+const VERBOSE = true;
+
 PC_DEF_GRAMMAR = `
 
 start = expression+
@@ -92,44 +94,49 @@ class ParserCombinator {
             const r = self.inputRead(input);
             if (r == c) {
                 self.inputAdvance();
+                if (VERBOSE) console.log(`    ${r} == ${c} ? Y`);
                 return c;
             } else {
+                if (VERBOSE) console.log(`    ${r} == ${c} ? N`);
                 return self.failure;
             }
         });
     }
 
     matchOr(...parsers) {
-
 	    let self = this;
-
         return (function (input) {
+            if (VERBOSE) console.log("   or {");
             const results = parsers.map( (parser) => {
                 return parser(input);
             }).filter( (result) => {
                 return result !== self.failure;
             });
             if (results.length > 0) {
-                return results;
+                // arbitrarily choosing the first matched or element.
+                // TODO rethink this
+                if (VERBOSE) console.log("   } or");
+                return results[0];
             } else {
+                if (VERBOSE) console.log("   } or");
                 return self.failure;
             }
         });
     }
 
     matchSequence(...parsers) {
-
 	    let self = this;
-
         return (function (input) {
+            if (VERBOSE) console.log("   seq {");
             const pos = self.inputGetIndex();
             if (pos > input.length) {
+                if (VERBOSE) console.log("   } seq");
                 return self.failure;
             }
             const results = parsers.map( (parser) => {
                 let result = parser(input);
                 if (result === self.failure) {
-                    this.inputSetIndex(pos);
+                    self.inputSetIndex(pos);
                     return self.failure;
                 }
                 return result;
@@ -137,9 +144,11 @@ class ParserCombinator {
             if (!results.every((x) => {
                     return x !== self.failure;
                 })) {
-                this.inputSet(pos);
+                self.inputSetIndex(pos);
+                if (VERBOSE) console.log("   } seq");
                 return self.failure;
             }
+            if (VERBOSE) console.log("   } seq");
             return results;
         });
     }
@@ -251,10 +260,19 @@ function main() {
     const result4 = parser4(seq);
 	console.log("result4: " + result4);
 */
-    const seq = "babc";
-    const pc = new ParserCombinator("a b;");
-    const parser = pc.matchOr(pc.matchSingle('a'), pc.matchSingle('b'));
-    console.log(parser("ab"));
+
+    const pc = new ParserCombinator("a;");
+    const parser = pc.matchSequence(
+        pc.matchOr(
+            pc.matchSingle('a'),
+            pc.matchSingle('b')
+        ),
+        pc.matchSingle('c')
+    );
+    console.log("ac");
+    console.log(parser("ac"));
+    pc.inputResetIndex();
+    console.log("ba");
     console.log(parser("ba"));
 
 }
