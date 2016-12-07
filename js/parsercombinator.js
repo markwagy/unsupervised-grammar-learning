@@ -1,7 +1,7 @@
 
 // see http://theorangeduck.com/page/you-could-have-invented-parser-combinators
+
 const PEG = require('pegjs');
-const fs = require('fs');
 
 
 PC_DEF_GRAMMAR = `
@@ -40,8 +40,8 @@ class ParserCombinator {
 
 	constructor(pcDefString) {
 		this.interpret(pcDefString);
-		this.sequenceIndex = 0;
-		this.sequence = [];
+		this.inputIndex = 0;
+		//this.sequence = [];
         this.failure = false;
 	}
 
@@ -51,84 +51,94 @@ class ParserCombinator {
 		this.buildFromPEGDefinition(pcDef);
 	}
 
-	consumeSequence(sequence) {
-        this.sequenceReset();
-        this.sequence = Array.from(sequence); // copy
+	// this returns a function that matches or not according to this parser combinator instance
+	matchLambda(sequence) {
+	    // TODO
+        return;
     }
 
-    inputAdvance(howMuch) {
-        this.sequenceIndex += howMuch;
+    inputAdvance() {
+        this.inputIndex++;
     }
 
-    inputRead() {
-        return this.sequence[this.sequenceIndex];
+    inputRead(input) {
+        return input[this.inputIndex];
     }
 
-    inputGet() {
-        return this.sequenceIndex;
+    inputGetIndex() {
+        return this.inputIndex;
     }
 
-    inputSet(val) {
-        this.sequenceIndex = val;
+    inputSetIndex(idxval) {
+        this.inputIndex = idxval;
     }
 
-    sequenceReset() {
-        this.sequenceIndex = 0;
+    inputResetIndex() {
+        this.inputIndex = 0;
     }
 
 	buildFromPEGDefinition(pcDef) {
         // this is where we'll create the actual parsers to use in the combinator
+        /*
         this.parser = this.or(pcDef.map((pattern) => {
-            this.seqmatch(pattern);
+            this.matchSequence(pattern);
         }));
+        */
     }
 
-    singleMatch(c) {
+    matchSingle(c) {
+	    let self = this;
         return (function (input) {
-            const r = this.inputRead(input);
+            const r = self.inputRead(input);
             if (r == c) {
-                this.inputAdvance(input, 1);
+                self.inputAdvance();
                 return c;
             } else {
-                return this.failure;
+                return self.failure;
             }
         });
     }
 
-    or(...parsers) {
+    matchOr(...parsers) {
+
+	    let self = this;
+
         return (function (input) {
-            const results = parsers.map((parser) => {
+            const results = parsers.map( (parser) => {
                 return parser(input);
-            }).filter((result) => {
-                return result !== this.failure;
+            }).filter( (result) => {
+                return result !== self.failure;
             });
             if (results.length > 0) {
                 return results;
             } else {
-                return this.failure;
+                return self.failure;
             }
         });
     }
 
-    seqmatch(...parsers) {
+    matchSequence(...parsers) {
+
+	    let self = this;
+
         return (function (input) {
-            const pos = this.inputGet(input);
+            const pos = self.inputGetIndex();
             if (pos > input.length) {
-                return this.failure;
+                return self.failure;
             }
-            const results = parsers.map((parser) => {
+            const results = parsers.map( (parser) => {
                 let result = parser(input);
-                if (result === this.failure) {
-                    this.inputSet(pos);
-                    return this.failure;
+                if (result === self.failure) {
+                    this.inputSetIndex(pos);
+                    return self.failure;
                 }
                 return result;
             });
             if (!results.every((x) => {
-                    return x !== this.failure;
+                    return x !== self.failure;
                 })) {
                 this.inputSet(pos);
-                return this.failure;
+                return self.failure;
             }
             return results;
         });
@@ -136,7 +146,7 @@ class ParserCombinator {
 
 }
 
-
+/*
 const seq = "babc";
 let idx = 0;
 let failure = false;
@@ -176,19 +186,6 @@ let singleMatch = function(c) {
 
 };
 
-/*
-function ori(parser0, parser1) {
-
-    return (function (input) {
-        var result0 = parser0(input);
-        if (result0 != failure) { return result0; }
-        var result1 = parser1(input);
-        if (result1 != failure) { return result1; }
-        return failure;
-    });
-
-}
-*/
 
 function or(...parsers) {
 
@@ -207,20 +204,6 @@ function or(...parsers) {
 
 }
 
-/*
-function and(parser0, parser1) {
-
-    return (function (input) {
-        var pos = inputGet(input);
-        var result0 = parser0(input);
-        if (result0 == failure) { inputSet(pos); return failure; }
-        var result1 = parser1(input);
-        if (result1 == failure) { inputSet(pos); return failure; }
-        return [result0, result1];
-    });
-
-}
-*/
 
 function seqmatch(...parsers) {
 
@@ -242,9 +225,10 @@ function seqmatch(...parsers) {
     });
 
 }
+*/
 
 function main() {
-
+/*
 	//var parser = singleMatch('a');
 	const parser = or(singleMatch('a'), singleMatch('b'));
 	const result1 = parser(seq);
@@ -266,10 +250,12 @@ function main() {
 	const parser4 = seqmatch(singleMatch('b'), singleMatch('a'), singleMatch('b'));
     const result4 = parser4(seq);
 	console.log("result4: " + result4);
-
-	inputReset();
-	const metaparser = seqmatch(singlematch, singlematch, singlematch);
-	const result4 = metaparser()
+*/
+    const seq = "babc";
+    const pc = new ParserCombinator("a b;");
+    const parser = pc.matchOr(pc.matchSingle('a'), pc.matchSingle('b'));
+    console.log(parser("ab"));
+    console.log(parser("ba"));
 
 }
 
