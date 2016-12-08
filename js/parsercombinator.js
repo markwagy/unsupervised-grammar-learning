@@ -82,6 +82,40 @@ class ParserCombinator {
         this.inputIndex = 0;
     }
 
+    static dedupe(vals) {
+        let uniq = [];
+        vals.forEach(x => { if (uniq.indexOf(x) < 0)
+            uniq.push(x);
+        })
+        return uniq;
+    }
+
+    static flatten(arr) {
+	    let self = this;
+        return arr.reduce(function (flat, toFlatten) {
+            return flat.concat(Array.isArray(toFlatten) ? self.flatten(toFlatten) : toFlatten);
+        }, []);
+    }
+
+    static getUniqueVars(pcDef) {
+	    if (pcDef.tag === "var") {
+	        return pcDef.val;
+        } else if (pcDef.tag === "or") {
+            return pcDef.vals.map( x => ParserCombinator.getUniqueVars(x));
+        }
+        let vals = pcDef.map( x => ParserCombinator.getUniqueVars(x));
+	    vals = ParserCombinator.flatten(vals);
+	    return ParserCombinator.dedupe(vals);
+    }
+
+    constructMatchFunctionDef(obj) {
+	    if (obj.tag !== "var") {
+	        console.err("wrong type");
+	        return;
+        }
+        return new Function(obj.val, `pc.matchSingle(${obj.val})`);
+    }
+
 	buildFromPEGDefinition(pcDef) {
         // TODO construct the appropriate parser combinator based on the pcDef
         this.matchLambda = function (x,y) {
@@ -195,7 +229,9 @@ function main() {
     //pc.inputResetIndex();
     //console.log("ba");
     //console.log(parser("ba")('a','b','z'));
-
+    console.log(ParserCombinator.flatten([[1,2],3,[4,[5,6]]]));
+    const uniqueVals = ParserCombinator.getUniqueVars([[{"tag": "var", "val": "x"}], [{"tag":"or", "vals":[{"tag":"var","val":"z"},{"tag":"var","val":"y"}]}]])
+    console.log(uniqueVals);
 }
 
 main();
