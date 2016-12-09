@@ -108,12 +108,15 @@ class ParserCombinator {
 	    return ParserCombinator.dedupe(vals);
     }
 
-    constructMatchFunctionDef(obj) {
-	    if (obj.tag !== "var") {
-	        console.err("wrong type");
-	        return;
+    constructFunctionDef(pcDef) {
+	    if (pcDef.tag === "var") {
+            return new Function(pcDef.val, `pc.matchSingle(${obj.val})`);
+        } else if (pcDef.tag === "or") {
+	        const orfuncs = pcDef.vals.reduce( (p,c) => {
+	            return constructFunctionDef() + ",";
+            });
+            return new Function("...parsers", `pc.matchOr(${orfuncs})`)
         }
-        return new Function(obj.val, `pc.matchSingle(${obj.val})`);
     }
 
 	buildFromPEGDefinition(pcDef) {
