@@ -1,0 +1,21 @@
+// let eqarr = (x, y) => { return x.map( (t,i) => { return t === y[i]; }).every( (x) => {return x===true } ); }
+
+start = x:expression+
+
+validchar = [A-Z]
+
+spacedatom = " "* x:atom " "* { return x; }
+
+atom = chars:validchar+ { return chars.join(""); }
+
+expression = x:spacedatom+ ";" { 
+		var uniqvals = [];
+        x.forEach( function(x) {
+        	if (uniqvals.indexOf(x) < 0) {
+            uniqvals.push(x); 
+            }
+        })
+
+        var numberedVals = x.map( (v, i) => { return v + i; });
+		return `((${numberedVals}) => {let f = (${uniqvals}) => {return [${x}]} ; return arrayEqual(f(${numberedVals}), [${numberedVals}]);})`;
+    }
