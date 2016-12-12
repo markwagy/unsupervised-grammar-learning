@@ -9,7 +9,7 @@ function log(msg) {
     console.log(msg);
 }
 
-// the following function is necessary for the parsed PEG grammar functions
+// the following function is necessary for the parsed PEG currentGrammar functions
 let arrayEqual = (x, y) => {
     return x.map( (t,i) => { return t === y[i]; }).every( (x) => {return x===true } );
 };
@@ -47,10 +47,10 @@ class Matcher {
     }
 
     match(patternArray) {
-        const pfResults = this.parserFuncs.map( (pf) => {
+        // return longest match. TODO might want to change this at some point
+        return this.parserFuncs.map( (pf) => {
             return pf.apply(null, patternArray);
-        });
-        return pfResults.some( (x) => { return x; });
+        }).sort( (a, b) => { return a.length < b.length; } )[0];
     }
 
 }
@@ -61,6 +61,8 @@ function test1() {
     log(matcher.match([1, 2]));
     log(matcher.match([1, 2, 1]));
     log(matcher.match([1, 2, 4]));
+    log(matcher.match([1]));
 }
 
 //test1();
+module.exports.Matcher = Matcher;

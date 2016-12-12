@@ -17,5 +17,5 @@ expression = x:spacedatom+ ";" {
         })
 
         var numberedVals = x.map( (v, i) => { return v + i; });
-		return `((${numberedVals}) => {let f = (${uniqvals}) => {return [${x}]} ; return arrayEqual(f(${numberedVals}), [${numberedVals}]);})`;
+		return `((${numberedVals}) => {let f = (${uniqvals}) => {return [${x}]} ; if(arrayEqual(f(${numberedVals}), [${numberedVals}])) { return [${numberedVals}]; } else { return []; }})`;
     }
