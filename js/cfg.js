@@ -50,7 +50,7 @@ class Rule {
     }
 
     toString() {
-        const rhsvals = this.rhs.map( (s) => { return s.toString() + CFG.SYMBOL_SEP; });
+        const rhsvals = this.rhs.map( (s) => { return s.toString(); });
         return `${this.lhs} -> ${rhsvals}`;
     }
 
@@ -107,13 +107,28 @@ class CFG {
         }
         let otherRulesSrt = otherCFG.rules.sort();
         let thisRulesSrt = this.rules.sort();
-        if (otherRulesSrt.map( (r, i) => {
-                return r.lhs !== thisRulesSrt[i].lhs;
-            }).some( (x) => { return x !== true;})) {
+        let lhsElementsEqual = otherRulesSrt.map( (r, i) => {
+                return r.lhs === thisRulesSrt[i].lhs;
+            });
+        if (otherRulesSrt.some( (r, i) => { return r.lhs !== thisRulesSrt[i].lhs;})) {
             return false;
         }
-        // we're assuming that if two grammars have the same LHS, then the RHS is the same here.
-        return true;
+        let areEqual = true;
+        otherRulesSrt.forEach( (otherRule, i) => {
+            let thisRule = thisRulesSrt[i];
+            if (otherRule.rhs.length !== thisRule.rhs.length) {
+                areEqual = false;
+                return;
+            }
+            otherRule.rhs.forEach( (otherRHSVal, i) => {
+                let thisRHSVal = thisRule.rhs[i];
+                if (!thisRHSVal.equals(otherRHSVal)) {
+                    areEqual = false;
+                    return;
+                }
+            })
+        });
+        return areEqual;
     }
 
     static getUID() {
