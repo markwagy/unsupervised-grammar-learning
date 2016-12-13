@@ -9,12 +9,6 @@ function log(msg) {
     console.log(msg);
 }
 
-// the following function is necessary for the parsed PEG currentGrammar functions
-let arrayEqual = (x, y) => {
-    return x.map( (t,i) => { return t === y[i]; }).every( (x) => {return x===true } );
-};
-
-
 const pegdefstr = fs.readFileSync(PEG_DEF_FILE, "utf-8");
 
 const pattern = "X X; X Y X;";

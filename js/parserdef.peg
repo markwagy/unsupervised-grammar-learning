@@ -1,5 +1,3 @@
-// let eqarr = (x, y) => { return x.map( (t,i) => { return t === y[i]; }).every( (x) => {return x===true } ); }
-
 start = x:expression+
 
 validchar = [A-Z]
@@ -9,12 +7,10 @@ spacedatom = " "* x:atom " "* { return x; }
 atom = chars:validchar+ { return chars.join(""); }
 
 expression = x:spacedatom+ ";" { 
-		var uniqvals = [];
-        x.forEach( function(x) {
-        	if (uniqvals.indexOf(x) < 0) {
-            uniqvals.push(x); 
-            }
-        })
+		let uniq = (t) => {return t.reduce( (p,c) => { if (p.indexOf(c) < 0) p.push(c); return p;}, [])}
+        let arrayeqstr = String((x,y) => { return x.length === y.length && x.every( (v,i) => { return v === y[i]; }) });
+        var uniqvals = uniq(x);
+        var uniqfnstr = String(uniq);
 
         var numberedVals = x.map( (v, i) => { return v + "_" + i; });
         var uniqNumberedVals = [];
@@ -25,5 +21,5 @@ expression = x:spacedatom+ ";" {
              uniqNumberedVals.push(v);
             }
         });
-		return `((${numberedVals}) => {let f = (${uniqvals}) => {return [${x}]} ; if(arrayEqual(f(${uniqNumberedVals}), [${numberedVals}])) { return [${numberedVals}]; } else { return []; }})`;
+		return `((${numberedVals}) => { \n if([${numberedVals}].some( (v) => { return v === undefined;})) return []; \n let arrayeq = ${arrayeqstr}; \n let f = (${uniqvals}) => {return [${x}]} ; \n let u = ${uniqfnstr};\n if(arrayeq(f(${uniqNumberedVals}), [${numberedVals}]) && (f.length === u([${numberedVals}]).length)) { return [${numberedVals}]; } else { return []; } \n})`;
     }
