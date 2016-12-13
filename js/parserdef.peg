@@ -16,6 +16,14 @@ expression = x:spacedatom+ ";" {
             }
         })
 
-        var numberedVals = x.map( (v, i) => { return v + i; });
-		return `((${numberedVals}) => {let f = (${uniqvals}) => {return [${x}]} ; if(arrayEqual(f(${numberedVals}), [${numberedVals}])) { return [${numberedVals}]; } else { return []; }})`;
+        var numberedVals = x.map( (v, i) => { return v + "_" + i; });
+        var uniqNumberedVals = [];
+        var getbase = (v) => { return v.replace(/_\d+/, ""); }
+        numberedVals.forEach( (v) => {
+        	var baseval = getbase(v);
+            if (uniqNumberedVals.map( (x) => { return getbase(x); }).indexOf(baseval) < 0) {
+             uniqNumberedVals.push(v);
+            }
+        });
+		return `((${numberedVals}) => {let f = (${uniqvals}) => {return [${x}]} ; if(arrayEqual(f(${uniqNumberedVals}), [${numberedVals}])) { return [${numberedVals}]; } else { return []; }})`;
     }
