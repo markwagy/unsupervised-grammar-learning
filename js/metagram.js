@@ -71,13 +71,13 @@ MatchRecord.num = 0;
 
 class MetaGram {
 
-	constructor(dataFileName) {
+	constructor(dataFileName, matchPattern) {
 		this.dataFileName = dataFileName;
 		this.currentGrammar = new cfg.CFG();
 		this.nextGrammar = new cfg.CFG();
 		this.initializeStartRules();
 		// TODO: probably want to generalize to multiple matchers that are randomly generated
-		this.matcher = new matcher.Matcher("X Y; X Y X;");
+		this.matcher = new matcher.Matcher(matchPattern);
 		this.matchRecords = [];
 	}
 
@@ -266,7 +266,7 @@ class MetaGram {
 
 
 function main() {
-	const mg = new MetaGram("test1.txt");
+	const mg = new MetaGram("nmw.txt", "X Y Z; X Y;");
 	mg.run();
 	console.log("done");
 }
