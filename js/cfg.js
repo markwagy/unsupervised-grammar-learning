@@ -131,9 +131,44 @@ class CFG {
         return areEqual;
     }
 
+    shuffleRules() {
+        this.rules.sort( (a, b) => {
+            return 0.5 - Math.random();
+        })
+    }
+
+    getMatch(lhs) {
+        this.shuffleRules();
+        return this.rules.filter( (x) => {
+            return x.lhs === lhs;
+        })[0];
+    }
+
+    generate() {
+        let sententialForm = [new Symbol(CFG.START_SYMBOL, false)];
+        while(sententialForm.some( (x) => {return !x.isTerminal} )) {
+            sententialForm = sententialForm.reduce( (p, c) => {
+                if (c.isTerminal) {
+                    p.push(c);
+                } else {
+                    let matchSym = this.getMatch(c.val);
+                    p = p.concat(matchSym.rhs);
+                }
+                return p;
+            }, []);
+        }
+        return sententialForm;
+    }
+
     static getUID() {
         CFG._uid += 1;
         return CFG._uid;
+    }
+
+    static terminalsToString(termslist) {
+        return termslist.reduce( (p, c) => {
+            return p + CFG.SYMBOL_SEP + c.val;
+        });
     }
 
 }
@@ -147,9 +182,37 @@ CFG._uid = 0;
 
 function main() {
     const cfg = new CFG();
+    cfg.addRule(CFG.START_SYMBOL, "NP VP".split(" ").map( (x) => { return new Symbol(x,false);}));
+    cfg.addRule("NP", [new Symbol("N", false)]);
+    cfg.addRule("NP", [new Symbol("the", true), new Symbol("N", false)]);
+    cfg.addRule("NP", [new Symbol("the", true), new Symbol("A", false), new Symbol("N", false)]);
+    cfg.addRule("N", [new Symbol("tree", true)]);
+    cfg.addRule("N", [new Symbol("dog", true)]);
+    cfg.addRule("N", [new Symbol("Bill", true)]);
+    cfg.addRule("N", [new Symbol("woman", true)]);
+    cfg.addRule("N", [new Symbol("man", true)]);
+    cfg.addRule("VP", [new Symbol("V", false)]);
+    cfg.addRule("V", [new Symbol("ran", true)]);
+    cfg.addRule("V", [new Symbol("jumped", true)]);
+    cfg.addRule("V", [new Symbol("ate", true)]);
+    cfg.addRule("V", [new Symbol("walked", true)]);
+    cfg.addRule("V", [new Symbol("fell", true)]);
+    cfg.addRule("VP", [new Symbol("V", false), new Symbol("P", false), new Symbol("NP", false)]);
+    cfg.addRule("P", [new Symbol("on", true)]);
+    cfg.addRule("P", [new Symbol("over", true)]);
+    cfg.addRule("P", [new Symbol("above", true)]);
+    cfg.addRule("P", [new Symbol("under", true)]);
+    cfg.addRule("A", [new Symbol("red", true)]);
+    cfg.addRule("A", [new Symbol("ugly", true)]);
+    cfg.addRule("A", [new Symbol("sophisticated", true)]);
+    cfg.addRule("A", [new Symbol("inconvenient", true)]);
+    console.log(cfg.toString());
+    console.log(CFG.terminalsToString(cfg.generate()));
 }
 
-//main();
+main();
+/*
 module.exports.CFG = CFG;
 module.exports.Symbol = Symbol;
 module.exports.Rule = Rule;
+*/
