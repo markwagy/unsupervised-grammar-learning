@@ -55,7 +55,7 @@ class MatchRecord {
 	}
 
 	static get UID() {
-		if (MatchRecord.charIdx > LETTERS.length) {
+		if (MatchRecord.charIdx >= LETTERS.length) {
 			MatchRecord.charIdx = 0;
 			MatchRecord.num++;
 		}
@@ -101,7 +101,9 @@ class MetaGram {
             return MetaGram.cleanLine(x);
         }).filter( (x) => { return x.length > 0; });
         cleanedLines.forEach( (x) => {
-        	const rhs = x.split(cfg.CFG.SYMBOL_SEP).map( (x) => {
+        	const rhs = x.split(cfg.CFG.SYMBOL_SEP).filter( (x) => {
+        	    return x!==undefined && x.length > 0;
+            }).map( (x) => {
 				return new cfg.Symbol(x, true);
 			});
             this.currentGrammar.addRule(cfg.CFG.START_SYMBOL, rhs);
@@ -266,7 +268,10 @@ class MetaGram {
 
 
 function main() {
-	const mg = new MetaGram("nmw.txt", "X Y Z; X Y;");
+	//let dataFile = "nmw.txt";
+	//let dataFile = "../data/sense_sents.txt";
+	let dataFile = "../data/sense_sents_short.txt";
+	const mg = new MetaGram(dataFile, "X Y X; X Y;", "\n");
 	mg.run();
 	console.log("done");
 }

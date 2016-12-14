@@ -11,7 +11,7 @@ class Util {
 class Symbol {
 
     constructor(val, isTerminal) {
-        this.val = this.clean(val)
+        this.val = this.clean(val);
         this.isTerminal = isTerminal;
         this.uid = Symbol.getUID();
     }
