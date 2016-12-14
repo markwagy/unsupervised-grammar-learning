@@ -264,6 +264,15 @@ class MetaGram {
         }
 	}
 
+	generate(howMany=20, treeFile="meta_trees.json") {
+	    let trees = [];
+	    for (let i=0; i<howMany; i++) {
+            console.log(cfg.CFG.terminalsToString(this.currentGrammar.generate()));
+            trees.push(this.currentGrammar.generateTree());
+        }
+        fs.writeFileSync(treeFile, JSON.stringify(trees, null, 2));
+    }
+
 }
 
 
@@ -273,7 +282,9 @@ function main() {
 	let dataFile = "../data/sense_sents_short.txt";
 	const mg = new MetaGram(dataFile, "X Y X; X Y;", "\n");
 	mg.run();
-	console.log("done");
+	console.log("---- GENERATED SENTENCES ----");
+	mg.generate();
+	console.log("---- DONE ---- ");
 }
 
 main();

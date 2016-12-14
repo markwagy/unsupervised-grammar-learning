@@ -144,9 +144,28 @@ class CFG {
         })[0];
     }
 
+    generateTreeHelper(sym, parent) {
+        let tree = {
+            "name": sym.val,
+            "parent": parent
+        };
+        if (!sym.isTerminal) {
+            tree['children'] = this.getMatch(sym.val).rhs.map( (r) => {
+                return this.generateTreeHelper(r, sym.val)
+            });
+        }
+        return tree;
+    }
+
+    generateTree() {
+        return this.generateTreeHelper(new Symbol(CFG.START_SYMBOL, false), null);
+    }
+
     generate() {
         let sententialForm = [new Symbol(CFG.START_SYMBOL, false)];
+
         while(sententialForm.some( (x) => {return !x.isTerminal} )) {
+
             sententialForm = sententialForm.reduce( (p, c) => {
                 if (c.isTerminal) {
                     p.push(c);
@@ -156,6 +175,7 @@ class CFG {
                 }
                 return p;
             }, []);
+
         }
         return sententialForm;
     }
@@ -208,11 +228,13 @@ function main() {
     cfg.addRule("A", [new Symbol("inconvenient", true)]);
     console.log(cfg.toString());
     console.log(CFG.terminalsToString(cfg.generate()));
+    let tree = cfg.generateTree();
+    console.log(JSON.stringify(tree, null, 2));
 }
 
-main();
-/*
+//main();
+
 module.exports.CFG = CFG;
 module.exports.Symbol = Symbol;
 module.exports.Rule = Rule;
-*/
+
