@@ -71,11 +71,11 @@ MatchRecord.num = 0;
 
 class MetaGram {
 
-	constructor(dataFileName, matchPattern) {
+	constructor(dataFileName, matchPattern, startRulesSplitter="\n") {
 		this.dataFileName = dataFileName;
 		this.currentGrammar = new cfg.CFG();
 		this.nextGrammar = new cfg.CFG();
-		this.initializeStartRules();
+		this.initializeStartRules(startRulesSplitter);
 		// TODO: probably want to generalize to multiple matchers that are randomly generated
 		this.matcher = new matcher.Matcher(matchPattern);
 		this.matchRecords = [];
@@ -95,8 +95,8 @@ class MetaGram {
 		return match;
 	}
 
-	initializeStartRules() {
-        const lines = fs.readFileSync(this.dataFileName, 'utf8').split("\n");
+	initializeStartRules(startRulesSplitter) {
+        const lines = fs.readFileSync(this.dataFileName, 'utf8').split(startRulesSplitter);
         const cleanedLines = lines.map( (x) => {
             return MetaGram.cleanLine(x);
         }).filter( (x) => { return x.length > 0; });
@@ -248,10 +248,10 @@ class MetaGram {
 		return !this.nextGrammar.equals(this.currentGrammar);
 	}
 
-	run() {
+	run(maxIters=1000) {
 		let grammarIteration = 1;
 		let grammarChanged = true;
-		while(grammarChanged) {
+		while(grammarChanged && grammarIteration<maxIters) {
 			console.log("------ Grammar iteration " + grammarIteration + " ------\n");
             this.buildNextGrammar();
             grammarChanged = this.grammarChanged();
