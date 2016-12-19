@@ -47,10 +47,10 @@
 				 .append("g")
 				 .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-	 d3.json("metagrammar_random_trees.json", function(error, flare) {
+	 d3.json("js/meta_trees.json", function(error, flare) {
 		 if (error) throw error;
 
-		 root = flare[1];
+		 root = flare[0];
 		 root.x0 = height / 2;
 		 root.y0 = 0;
 

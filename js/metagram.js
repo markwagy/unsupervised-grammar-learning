@@ -107,7 +107,7 @@ class MetaGram {
 				return new cfg.Symbol(x, true);
 			});
             this.currentGrammar.addRule(cfg.CFG.START_SYMBOL, rhs);
-		})
+		});
 	}
 
 	static cleanLine(txtLine) {
@@ -134,7 +134,7 @@ class MetaGram {
 			return r.rhs.slice(0, sequence.length).map( (s, i) => {
 				return s.equals(sequence[i]);
 			}).every( (x) => { return x; });
-		})
+		});
 	}
 
 	static sequencesOverlap(seq1, seq2) {
@@ -163,11 +163,6 @@ class MetaGram {
                 const matchSequence = this.matcher.match(currRHS);
                 if (matchSequence.length === 0) {
                     let symbol = rhs[i].clone();
-                    /*
-                    if (!symbol.isTerminal) {
-                        this.copyRuleOver(this.currentGrammar, this.nextGrammar, symbol.val)
-                    }
-                    */
                     newRHS.push(symbol);
                     i++;
                     continue;
@@ -187,11 +182,6 @@ class MetaGram {
                     i += matchSequence.length;
                 } else {
                     let symbol = rhs[i].clone();
-                    /*
-                    if (!symbol.isTerminal) {
-                        this.copyRuleOver(this.currentGrammar, this.nextGrammar, symbol.val)
-                    }
-                    */
                     newRHS.push(symbol);
                     i++;
                 }
@@ -279,7 +269,7 @@ class MetaGram {
 function main() {
 	//let dataFile = "nmw.txt";
 	//let dataFile = "../data/sense_sents.txt";
-	let dataFile = "../data/sense_sents_short.txt";
+	let dataFile = "../data/sense_sents_3000.txt";
 	const mg = new MetaGram(dataFile, "X Y X; X Y;", "\n");
 	mg.run();
 	console.log("---- GENERATED SENTENCES ----");

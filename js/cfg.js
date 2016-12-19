@@ -227,13 +227,15 @@ function main() {
     cfg.addRule("A", [new Symbol("sophisticated", true)]);
     cfg.addRule("A", [new Symbol("inconvenient", true)]);
     console.log(cfg.toString());
-    console.log(CFG.terminalsToString(cfg.generate()));
+    Array.apply(null, {length:10}).forEach(() => {
+        console.log(CFG.terminalsToString(cfg.generate()));
+    });
     let tree = cfg.generateTree();
     console.log(JSON.stringify(tree, null, 2));
 }
 
-//main();
 
+//main();
 module.exports.CFG = CFG;
 module.exports.Symbol = Symbol;
 module.exports.Rule = Rule;
