@@ -22,17 +22,45 @@
 	 stroke-width: 1.5px;
  }
 
+ .partition {
+	 border: 2px solid purple;
+	 padding: 10px;
+	 border-radius: 5px;
+	 background-color: #fff;
+	 margin-top: 5px;
+ }
+
+ body {
+	 background-color: #333;
+ }
+
+ svg {
+	 background-color: #fff;
+	 display: block;
+	 margin: 0 auto;
+ }
+
 </style>
 <body>
-	<div id="controls">
-		<select id="whichviz"></select>
+	
+	<div id="grammar" class="partition">
+		<h4>grammar</h4>
 	</div>
+
+	<div id="generated" class="partition">
+		<h4>grammar generated values</h4>
+		<div id="controls">
+			Generated sentence value:
+			<select id="whichviz"></select>
+		</div>
+	</div>
+	
 	<script src="http://d3js.org/d3.v3.min.js"></script>
 	<script>
 
-	 var margin = {top: 20, right: 120, bottom: 20, left: 120},
-		 width = 2500 - margin.right - margin.left,
-		 height = 1000 - margin.top - margin.bottom;
+	 var margin = {top: 20, right: 120, bottom: 20, left: 50},
+		 width = 700 - margin.right - margin.left,
+		 height = 400 - margin.top - margin.bottom;
 
 	 var i = 0,
 		 duration = 750,
@@ -44,7 +72,7 @@
 	 var diagonal = d3.svg.diagonal()
 					  .projection(function(d) { return [d.y, d.x]; });
 
-	 var svg = d3.select("body").append("svg")
+	 var svg = d3.select("#generated").append("svg")
 				 .attr("width", width + margin.right + margin.left)
 				 .attr("height", height + margin.top + margin.bottom)
 				 .append("g")
@@ -65,7 +93,16 @@
 			 }
 		 }
 
-		 root.children.forEach(collapse);
+		 function expand(d) {
+			 if (!d.children && d._children) {
+				 d.children = d._children;
+				 debugger;
+				 d.children.forEach(expand);
+				 d._children = null;
+			 }
+		 }
+
+		 root.children.forEach(expand);
 
 	 }
 
@@ -87,6 +124,7 @@
 
 		 updateRoot(data[0])
 		 update(data[0]);
+//		 expand(data[0]);
 	 });
 
 	 d3.select(self.frameElement).style("height", "800px");
@@ -94,11 +132,11 @@
 	 function update(source) {
 
 		 // Compute the new tree layout.
-			 var nodes = tree.nodes(root).reverse(),
+		 var nodes = tree.nodes(root).reverse(),
 				 links = tree.links(nodes);
 
 		 // Normalize for fixed-depth.
-			 nodes.forEach(function(d) { d.y = d.depth * 180; });
+		 nodes.forEach(function(d) { d.y = d.depth * 180; });
 
 		 // Update the nodes…
 		 var node = svg.selectAll("g.node")
@@ -140,7 +178,7 @@
 				   .style("fill-opacity", 1);
 
 		 // Transition exiting nodes to the parent's new position.
-			 var nodeExit = node.exit().transition()
+		 var nodeExit = node.exit().transition()
 								.duration(duration)
 								.attr("transform", function(d) { return "translate(" + source.y + "," + source.x + ")"; })
 								.remove();
@@ -156,7 +194,7 @@
 					   .data(links, function(d) { return d.target.id; });
 
 		 // Enter any new links at the parent's previous position.
-			 link.enter().insert("path", "g")
+		 link.enter().insert("path", "g")
 				 .attr("class", "link")
 				 .attr("d", function(d) {
 					 var o = {x: source.x0, y: source.y0};
@@ -164,12 +202,12 @@
 				 });
 
 		 // Transition links to their new position.
-			 link.transition()
+		 link.transition()
 				 .duration(duration)
 				 .attr("d", diagonal);
 
 		 // Transition exiting nodes to the parent's new position.
-			 link.exit().transition()
+		 link.exit().transition()
 				 .duration(duration)
 				 .attr("d", function(d) {
 					 var o = {x: source.x, y: source.y};
@@ -178,7 +216,7 @@
 				 .remove();
 
 		 // Stash the old positions for transition.
-			 nodes.forEach(function(d) {
+		 nodes.forEach(function(d) {
 				 d.x0 = d.x;
 				 d.y0 = d.y;
 			 });
@@ -188,9 +226,11 @@
 	 // Toggle children on click.
 	 function click(d) {
 		 if (d.children) {
+			 console.log("has .children");
 			 d._children = d.children;
 			 d.children = null;
 		 } else {
+			 console.log("doesn't have .children");
 			 d.children = d._children;
 			 d._children = null;
 		 }
