@@ -2,6 +2,8 @@
  * Created by mwagy on 12/12/16.
  */
 
+var fs = require('fs');
+
 class Util {
     static randomChoice(array) {
         return array[Math.floor(Math.random()*array.length)];
@@ -30,7 +32,7 @@ class Symbol {
     }
 
     clone() {
-        return new Symbol(this.val, this.isTerminal)
+        return new Symbol(this.val, this.isTerminal);
     }
 
     equals(other) {
@@ -66,6 +68,11 @@ class CFG {
         let s = "GRAMMAR:\n";
         this.rules.forEach( (r) => { s += r.toString() + "\n"; });
         return s;
+    }
+
+    toJSON(filename) {
+        let contents = this.rules;
+        fs.writeFileSync(filename, JSON.stringify(contents, null, 2));
     }
 
     getNext(lhs) {

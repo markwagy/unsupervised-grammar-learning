@@ -25,6 +25,7 @@ class MatchRecord {
 		this.uid = null;
 		this.hasFiredBefore = false;
 		this.originalSequence = sequence;
+		this.historicalCounts = 1;
 	}
 
 	fires() {
@@ -249,9 +250,19 @@ class MetaGram {
             grammarChanged = this.grammarChanged();
             this.report();
             this.swapGrammars();
+            this.writeMatchRecords();
             this.resetMatchRecords();
             grammarIteration++;
         }
+		this.writeGrammar();
+	}
+
+	writeMatchRecords(mrFileName="metagram_matchrecords.json") {
+		fs.writeFileSync(mrFileName, JSON.stringify(this.matchRecords, null, 2));
+	}
+
+	writeGrammar(grammarFileName="metagram_grammar.json") {
+		this.currentGrammar.toJSON(grammarFileName)
 	}
 
 	generate(howMany=20, treeFile="meta_trees.json") {
@@ -269,7 +280,7 @@ class MetaGram {
 function main() {
 	//let dataFile = "nmw.txt";
 	//let dataFile = "../data/sense_sents.txt";
-	let dataFile = "../data/sense_sents_3000.txt";
+	let dataFile = "../data/sense_sents_2000.txt";
 	const mg = new MetaGram(dataFile, "X Y X; X Y;", "\n");
 	mg.run();
 	console.log("---- GENERATED SENTENCES ----");

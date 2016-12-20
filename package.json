@@ -1,0 +1,35 @@
+{
+  "name": "unsupervised-grammar-learning",
+  "version": "1.0.0",
+  "description": "Algorithms and code related to unsupervised grammar learning activities. E.g. Sequitur implementation and extensions thereof.",
+  "main": "gulpfile.js",
+  "dependencies": {
+    "gulp": "^3.9.1",
+    "gulp-browserify": "^0.5.1"
+  },
+  "devDependencies": {
+    "child_process": "^1.0.2",
+    "del": "^2.2.2",
+    "gulp": "^3.9.1",
+    "gulp-browserify": "^0.5.1",
+    "gulp-connect": "^5.0.0",
+    "gulp-copy": "^1.0.0",
+    "gulp-jasmine-node": "^1.0.7",
+    "gulp-jshint": "^2.0.4",
+    "gulp-nodemon": "^2.2.1",
+    "jshint": "^2.9.4"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mwagyuvm/unsupervised-grammar-learning.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mwagyuvm/unsupervised-grammar-learning/issues"
+  },
+  "homepage": "https://github.com/mwagyuvm/unsupervised-grammar-learning#readme"
+}
