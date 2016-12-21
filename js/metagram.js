@@ -250,11 +250,17 @@ class MetaGram {
             grammarChanged = this.grammarChanged();
             this.report();
             this.swapGrammars();
-            this.writeMatchRecords();
+            this.writeGrammar(`metagram_grammar_${grammarIteration}.json`);
+            this.writeMatchRecords(`metagram_matchrecords_${grammarIteration}.json`);
             this.resetMatchRecords();
             grammarIteration++;
         }
 		this.writeGrammar();
+		this.writeInfo({numIters: grammarIteration});
+	}
+
+	writeInfo(infoObj, filename="info.json") {
+		fs.writeFileSync(filename, infoObj);
 	}
 
 	writeMatchRecords(mrFileName="metagram_matchrecords.json") {
@@ -280,7 +286,7 @@ class MetaGram {
 function main() {
 	//let dataFile = "nmw.txt";
 	//let dataFile = "../data/sense_sents.txt";
-	let dataFile = "../data/sense_sents_2000.txt";
+	let dataFile = "../data/sense_sents_1000.txt";
 	const mg = new MetaGram(dataFile, "X Y X; X Y;", "\n");
 	mg.run();
 	console.log("---- GENERATED SENTENCES ----");

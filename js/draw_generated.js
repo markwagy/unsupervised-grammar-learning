@@ -63,7 +63,7 @@ d3.json("../js/meta_trees.json", function(error, data) {
 		update(newdata);
 	});
 
-	updateRoot(data[0])
+	updateRoot(data[0]);
 	update(data[0]);
 	//		 expand(data[0]);
 });
