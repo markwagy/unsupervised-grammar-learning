@@ -70,16 +70,12 @@
 	<div id="grammar" class="partition">
 		<a href="#navigation">top</a>		
 		<h4>grammar</h4>
-		<input id="grammaritertext"></input>
-		<button onclick="loadGrammar();">load grammar</button>
 		<table id="grammartable"></table>
 	</div>
 
 	<div id="matchrecords" class="partition">
 		<a href="#navigation">top</a>
 		<h4>match records</h4>
-		<input id="matchitertext"></input>
-		<button onclick="loadMatchRecords();">load matchrecords</button>
 		<table id="matchrecords"></table>
 	</div>
 
@@ -92,12 +88,19 @@
 		</div>
 	</div>	
 
+
+	<script src="../js/draw_generated.js"></script>
+	<script src="../js/draw_grammar.js"></script>	
+	<script src="../js/draw_matchrecords.js"></script>
+	
 	<script>
 
 	 let iteration = 1;
 
 	 let iterselect = d3.select("select#iterselect").on("change", () => {
 		 iteration = document.getElementById("iterselect").value;
+		 loadGrammar();
+		 loadMatchRecords();
 	 });
 
 	 d3.json("../js/info.json", (err, data) => {
@@ -107,9 +110,10 @@
 				   .text( d => { return d; });
 	 });
 
+	 loadGrammar();
+	 loadMatchRecords();
+
 	</script>
 
-	<script src="../js/draw_generated.js"></script>
-	<script src="../js/draw_grammar.js"></script>	
-	<script src="../js/draw_matchrecords.js"></script>	
+
 </body>
