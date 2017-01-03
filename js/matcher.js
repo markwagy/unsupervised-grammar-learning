@@ -30,7 +30,6 @@ function test() {
 class Matcher {
 
     constructor(patternString) {
-        this.patternString = patternString;
         const pegdefstr = fs.readFileSync(PEG_DEF_FILE, "utf-8");
         const pegdef = PEG.generate(pegdefstr);
         this.parserFuncs = pegdef.parse(patternString).map( (fstr) => { return eval(fstr); } );
@@ -41,7 +40,7 @@ class Matcher {
     }
 
     match(patternArray) {
-        // return longest match. TODO might want to change this at some point
+        // return longest match. may want to change this at some point.
         return this.parserFuncs.map( (pf) => {
             return pf.apply(null, patternArray);
         }).sort( (a, b) => { return a.length < b.length; } )[0];

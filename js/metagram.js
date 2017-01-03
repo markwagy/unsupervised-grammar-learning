@@ -25,15 +25,10 @@ class MatchRecord {
 		this.uid = null;
 		this.hasFiredBefore = false;
 		this.originalSequence = sequence;
-		this.historicalCounts = 1;
 	}
 
 	fires() {
 		return this.counts > 1;
-	}
-
-	hasFired() {
-		return this.hasFiredBefore;
 	}
 
 	incrementCount() {
@@ -77,7 +72,6 @@ class MetaGram {
 		this.currentGrammar = new cfg.CFG();
 		this.nextGrammar = new cfg.CFG();
 		this.initializeStartRules(startRulesSplitter);
-		// TODO: probably want to generalize to multiple matchers that are randomly generated
 		this.matcher = new matcher.Matcher(matchPattern);
 		this.matchRecords = [];
 	}
@@ -147,12 +141,6 @@ class MetaGram {
         });
     }
 
-    copyRuleOver(fromGrammar, toGrammar, ruleLHS) {
-	    toGrammar.rules.push(fromGrammar.rules.filter( (r) => {
-	        return r.lhs === ruleLHS;
-	    })[0]);
-    }
-
 	getUpdatedRHS(rhs) {
 		let newRHS = [];
 		let i = 0;
@@ -200,12 +188,6 @@ class MetaGram {
         return newRHS;
     }
 
-    static sameRHS(rhs1, rhs2) {
-		return rhs1.every( (r1, i) => {
-			return r1.equals(rhs2[i]);
-		});
-	}
-
     resetMatchRecords() {
 		this.matchRecords = [];
 	}
@@ -241,12 +223,21 @@ class MetaGram {
 		return !this.nextGrammar.equals(this.currentGrammar);
 	}
 
+	generalizeMatchRecords() {
+		// find commonalities in match records to generalize for inference
+	}
+
+	postProcess() {
+		this.generalizeMatchRecords();
+	}
+
 	run(maxIters=1000) {
 		let grammarIteration = 1;
 		let grammarChanged = true;
 		while(grammarChanged && grammarIteration<maxIters) {
 			console.log("------ Grammar iteration " + grammarIteration + " ------\n");
             this.buildNextGrammar();
+            this.postProcess();
             grammarChanged = this.grammarChanged();
             this.report();
             this.swapGrammars();
