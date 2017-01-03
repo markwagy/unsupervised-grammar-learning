@@ -1,4 +1,4 @@
-start = x:expression+
+start = x:expression { return x; }
 
 validchar = [A-Z]
 
@@ -6,7 +6,7 @@ spacedatom = " "* x:atom " "* { return x; }
 
 atom = chars:validchar+ { return chars.join(""); }
 
-expression = x:spacedatom+ ";" { 
+expression = x:spacedatom+ {
 		let uniq = (t) => {return t.reduce( (p,c) => { if (p.indexOf(c) < 0) p.push(c); return p;}, [])}
         let arrayeqstr = String((x,y) => { return x.length === y.length && x.every( (v,i) => { return v === y[i]; }) });
         var uniqvals = uniq(x);

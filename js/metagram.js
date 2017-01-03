@@ -67,12 +67,12 @@ MatchRecord.num = 0;
 
 class MetaGram {
 
-	constructor(dataFileName, matchPattern, startRulesSplitter="\n") {
+	constructor(dataFileName, matchProgram, startRulesSplitter="\n") {
 		this.dataFileName = dataFileName;
 		this.currentGrammar = new cfg.CFG();
 		this.nextGrammar = new cfg.CFG();
 		this.initializeStartRules(startRulesSplitter);
-		this.matcher = new matcher.Matcher(matchPattern);
+		this.matchers = matcher.Matcher.getMatchers(matchProgram);
 		this.matchRecords = [];
 	}
 
@@ -149,7 +149,13 @@ class MetaGram {
             // TODO: test check for match on existing rule RHS values here
 			let existingRuleMatches = this.getExistingRuleMatches(currRHS);
             if (existingRuleMatches.length === 0) {
-                const matchSequence = this.matcher.match(currRHS);
+                const matchSequence = this.matchers.map(m => {
+                	return m.match(currRHS);
+				}).filter(m => {
+					return m.length > 0;
+				}).sort( (a, b) => {
+					return a.length > b.length;
+				});
                 if (matchSequence.length === 0) {
                     let symbol = rhs[i].clone();
                     newRHS.push(symbol);
@@ -247,10 +253,10 @@ class MetaGram {
             grammarIteration++;
         }
 		this.writeGrammar();
-		this.writeInfo({numIters: grammarIteration});
+		MetaGram.writeInfo({numIters: grammarIteration});
 	}
 
-	writeInfo(infoObj, filename="info.json") {
+	static writeInfo(infoObj, filename="info.json") {
 		fs.writeFileSync(filename, infoObj);
 	}
 
@@ -277,7 +283,7 @@ class MetaGram {
 function main() {
 	//let dataFile = "nmw.txt";
 	//let dataFile = "../data/sense_sents.txt";
-	let dataFile = "../data/sense_sents_1000.txt";
+	let dataFile = "../data/sense_sents_500.txt";
 	const mg = new MetaGram(dataFile, "X Y X; X Y;", "\n");
 	mg.run();
 	console.log("---- GENERATED SENTENCES ----");

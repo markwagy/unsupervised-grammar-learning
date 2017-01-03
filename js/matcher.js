@@ -9,30 +9,29 @@ function log(msg) {
     console.log(msg);
 }
 
-const pegdefstr = fs.readFileSync(PEG_DEF_FILE, "utf-8");
 
-const pattern = "X X; X Y X;";
-const pegdef = PEG.generate(pegdefstr);
-const parserFuncs = pegdef.parse(pattern).map( (fstr) => { return eval(fstr); } );
+class MatchObj {
+    constructor(matchArray) {
+        this.vals = matchArray;
+    }
 
+    get length() {
+        return this.vals.length;
+    }
 
-function test() {
-    console.log(parserFuncs[0].apply(null, [1, 1]));
-    console.log(parserFuncs[0].apply(null, [1, 2]));
-    console.log(parserFuncs[1].apply(null, [1, 2, 1]));
-    console.log(parserFuncs[1].apply(null, [1, 2, 8]));
-    console.log(parserFuncs[1].apply(null, [1, 2, 8, 4]));
-    console.log(parserFuncs[1].apply(null, [1, 2, 1, 4]));
 }
-
-//test();
 
 class Matcher {
 
     constructor(patternString) {
+        if (patternString.indexOf(";") >= 0) {
+            throw "YouAreUsingTheOldVersionOfPatternDefs";
+        }
+        this.patternString = patternString;
         const pegdefstr = fs.readFileSync(PEG_DEF_FILE, "utf-8");
         const pegdef = PEG.generate(pegdefstr);
-        this.parserFuncs = pegdef.parse(patternString).map( (fstr) => { return eval(fstr); } );
+        const fstr = pegdef.parse(this.patternString);
+        this.parserFunc = eval(fstr);
     }
 
     toString() {
@@ -40,16 +39,21 @@ class Matcher {
     }
 
     match(patternArray) {
-        // return longest match. may want to change this at some point.
-        return this.parserFuncs.map( (pf) => {
-            return pf.apply(null, patternArray);
-        }).sort( (a, b) => { return a.length < b.length; } )[0];
+        const matchvals = this.parserFunc.apply(null, patternArray);
+        return new MatchObj(matchvals);
+    }
+
+    static getMatchers(matchPatternString) {
+        let mps = matchPatternString.split(';').filter(x => { return x.length > 0; });
+        return mps.map( (mp) => {
+            return new Matcher(mp);
+        });
     }
 
 }
 
 function test1() {
-    const matcher = new Matcher("X X; X Y X;");
+    const matcher = new Matcher("X Y Z");
     log(matcher.match([1, 1]));
     log(matcher.match([1, 2]));
     log(matcher.match([1, 2, 1]));
