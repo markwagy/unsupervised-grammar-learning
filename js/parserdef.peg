@@ -21,5 +21,7 @@ expression = x:spacedatom+ {
              uniqNumberedVals.push(v);
             }
         });
-		return `((${numberedVals}) => { \n if([${numberedVals}].some( (v) => { return v === undefined;})) return []; \n let arrayeq = ${arrayeqstr}; \n let f = (${uniqvals}) => {return [${x}]} ; \n let u = ${uniqfnstr};\n if(arrayeq(f(${uniqNumberedVals}), [${numberedVals}]) && (f.length === u([${numberedVals}]).length)) { return [${numberedVals}]; } else { return []; } \n})`;
+		return {
+		    'funcstr': `((${numberedVals}) => { \n if([${numberedVals}].some( (v) => { return v === undefined;})) return []; \n let arrayeq = ${arrayeqstr}; \n let f = (${uniqvals}) => {return [${x}]} ; \n let u = ${uniqfnstr};\n if(arrayeq(f(${uniqNumberedVals}), [${numberedVals}]) && (f.length === u([${numberedVals}]).length)) { return [${numberedVals}]; } else { return []; } \n})`
+		 };
     }

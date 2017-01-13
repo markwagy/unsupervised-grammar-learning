@@ -30,7 +30,8 @@ class Matcher {
         this.patternString = patternString;
         const pegdefstr = fs.readFileSync(PEG_DEF_FILE, "utf-8");
         const pegdef = PEG.generate(pegdefstr);
-        const fstr = pegdef.parse(this.patternString);
+        const parseobj = pegdef.parse(this.patternString);
+        const fstr = parseobj.funcstr;
         this.parserFunc = eval(fstr);
     }
 
