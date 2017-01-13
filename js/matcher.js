@@ -30,8 +30,8 @@ class Matcher {
         this.patternString = patternString;
         const pegdefstr = fs.readFileSync(PEG_DEF_FILE, "utf-8");
         const pegdef = PEG.generate(pegdefstr);
-        const parseobj = pegdef.parse(this.patternString);
-        const fstr = parseobj.funcstr;
+        this.parseobj = pegdef.parse(this.patternString);
+        const fstr = this.parseobj.funcstr;
         this.parserFunc = eval(fstr);
     }
 
@@ -62,5 +62,5 @@ function test1() {
     log(matcher.match([1]));
 }
 
-//test1();
-module.exports.Matcher = Matcher;
+test1();
+//module.exports.Matcher = Matcher;
