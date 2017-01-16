@@ -3,7 +3,8 @@ const PEG = require('pegjs');
 const fs = require('fs');
 
 const PEG_DEF_FILE = "parserdef.peg";
-
+const WILDCARD = "*";
+const TOKEN_SEP = " ";
 
 function log(msg) {
     console.log(msg);
@@ -11,33 +12,14 @@ function log(msg) {
 
 
 class MatchObj {
-    constructor(matchArray) {
+
+    constructor(matchArray, wild) {
         this.vals = matchArray;
+        this.wild = wild || [];
     }
 
     get length() {
         return this.vals.length;
-    }
-
-}
-
-class Stream {
-
-    constructor(vals) {
-        this.i = 0;
-        this.vals = vals;
-    }
-
-    next() {
-        return this.vals[this.i+1];
-    }
-
-    hasNext() {
-        return this.vals.length > (this.i+1);
-    }
-
-    getIndex() {
-        return this.i;
     }
 
 }
@@ -57,10 +39,6 @@ class TokenDict {
         this.d[t] = null;
     }
 
-    numKeys() {
-        return this.keys().length;
-    }
-
     values() {
         let v = this.keys().map(x => { return this.d[x]}).filter( x => { return x !== null; });
         return v;
@@ -68,10 +46,6 @@ class TokenDict {
 
     hasKey(k) {
         return this.keys().indexOf(k) >= 0;
-    }
-
-    hasValue(v) {
-        return this.values().indexOf(v) >= 0;
     }
 
     add(k, v="EMPTY") {
@@ -103,11 +77,11 @@ class TokenDict {
 class MatchFunction {
 
     constructor(patternString) {
-        const TOKEN_SEP = " ";
         this.tokenDict = new TokenDict();
         this.tokens = patternString.split(TOKEN_SEP);
         this.uniqueTokens = this.getUniqueTokensInOrder(this.tokens);
         this.uniqueTokens.forEach(t => {this.tokenDict.init(t);});
+        this.wild = [];
     }
 
     getUniqueTokensInOrder(toks) {
@@ -136,15 +110,18 @@ class MatchFunction {
         let matchedVals = [];
         while (canBeAMatch) {
             i++;
-            if (i>=seq.length || i>=this.tokens.length) {
+            if (i >= seq.length || i >= this.tokens.length) {
                 canBeAMatch = false;
                 break;
             }
             let currentVar = this.tokens[i];
             let currentVal = seq[i];
             let varIsAlreadyAssigned = !this.tokenDict.isNull(currentVar);
+            let varIsWildcard = currentVar === WILDCARD;
             let valAlreadyExists = this.tokenDict.values().indexOf(currentVal) >= 0;
-            if (varIsAlreadyAssigned) {
+            if (varIsWildcard) {
+                this.wild.push(currentVal);
+            } else if (varIsAlreadyAssigned) {
                 let assignedVal = this.tokenDict.get(currentVar);
                 if (assignedVal !== currentVal) {
                     canBeAMatch = false;
@@ -178,11 +155,12 @@ class Matcher {
             throw "YouAreUsingTheOldVersionOfPatternDefs";
         }
         this.patternString = patternString;
-        const pegdefstr = fs.readFileSync(PEG_DEF_FILE, "utf-8");
-        const pegdef = PEG.generate(pegdefstr);
-        this.parseobj = pegdef.parse(this.patternString);
-        const fstr = this.parseobj.funcstr;
-        this.parserFunc = eval(fstr);
+        //const pegdefstr = fs.readFileSync(PEG_DEF_FILE, "utf-8");
+        //const pegdef = PEG.generate(pegdefstr);
+        //this.parseobj = pegdef.parse(this.patternString);
+        //const fstr = this.parseobj.funcstr;
+        //this.parserFunc = eval(fstr);
+        this.parserFunc = new MatchFunction(this.patternString);
     }
 
     toString() {
@@ -190,8 +168,13 @@ class Matcher {
     }
 
     match(patternArray) {
-        const matchvals = this.parserFunc.apply(null, patternArray);
-        return new MatchObj(matchvals);
+        const matchvals = this.parserFunc.run(patternArray);
+        if (matchvals.length > 0) {
+            let wild = matchvals.filter( (v, i) => {
+                return this.patternString.split(TOKEN_SEP)[i]===WILDCARD;
+            });
+            return new MatchObj(matchvals, wild);
+        }
     }
 
     static getMatchers(matchPatternString) {
@@ -204,24 +187,29 @@ class Matcher {
 }
 
 function test1() {
-    const matcher = new Matcher("X Y Z");
+
+    log("matcher 1");
+    const matcher = new Matcher("X Y X");
     log(matcher.match([1, 1]));
     log(matcher.match([1, 2]));
     log(matcher.match([1, 2, 1]));
     log(matcher.match([1, 2, 4]));
     log(matcher.match([1]));
+
+    log("matcher 2");
+    const m2 = new Matcher("X X");
+    log(m2.match([1, 1]));
+    log(m2.match([1, 2, 3]));
+    log(m2.match([2, 2]));
+
+    log("matcher 3");
+    const m3 = new Matcher("X *");
+    log(m3.match([1, 1]));
+    log(m3.match([1, 2, 3]));
+    log(m3.match([1, 2]));
+
 }
 
-function test2() {
-    const mf = new MatchFunction("X X Y X");
-    console.log(mf.run([1, 1, 1, 1]));
-    console.log(mf.run([1, 1, 3, 1, 3]));
-    console,log(mf.run(["a","b","c","d"]));
-    console.log(mf.run([0,0,1]));
-    console.log(mf.run([0,1,1,0,1]));
-    console.log(mf.run(["a","a","b","a","a"]))
-}
 
-
-//test2();
+test1();
 module.exports.Matcher = Matcher;
