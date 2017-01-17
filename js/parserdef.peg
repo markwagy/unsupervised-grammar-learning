@@ -1,6 +1,6 @@
 start = x:expression { return x; }
 
-validchar = [A-Z]
+validchar = [A-Z$]
 
 spacedatom = " "* x:atom " "* { return x; }
 

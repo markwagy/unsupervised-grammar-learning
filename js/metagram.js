@@ -19,12 +19,13 @@ const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 class MatchRecord {
 
-	constructor(sequence) {
+	constructor(sequence, matchType="-") {
 		this.key = MatchRecord.getKey(sequence);
 		this.counts = 1;
 		this.uid = null;
 		this.hasFiredBefore = false;
 		this.originalSequence = sequence;
+		this.matchType = matchType; // can be - or | for "sequence" or "or"
 	}
 
 	fires() {
@@ -44,9 +45,9 @@ class MatchRecord {
 		this.hasFiredBefore = true;
 	}
 
-	static getKey(sequence) {
+	static getKey(sequence, matchType) {
 		return sequence.reduce( (p, c) => {
-			return p + "." + c;
+			return p + matchType + c;
 		});
 	}
 
@@ -76,12 +77,12 @@ class MetaGram {
 		this.matchRecords = [];
 	}
 
-	pullMatchRecord(sequence) {
-		const mrKey = MatchRecord.getKey(sequence);
+	pullMatchRecord(sequence, matchType) {
+		const mrKey = MatchRecord.getKey(sequence, matchType);
 		const matchedRecords = this.matchRecords.filter( (mr) => {
                 return mr.key === mrKey;
             });
-		let match = matchedRecords.length === 0 ? new MatchRecord(sequence) : matchedRecords[0];
+		let match = matchedRecords.length === 0 ? new MatchRecord(sequence, matchType) : matchedRecords[0];
 		if (matchedRecords.length === 0) {
 			this.matchRecords.push(match);
 		} else {
@@ -155,14 +156,15 @@ class MetaGram {
 					return m.length > 0;
 				}).sort( (a, b) => {
 					return a.length > b.length;
-				});
+				})[0];
                 if (matchSequence.length === 0) {
                     let symbol = rhs[i].clone();
                     newRHS.push(symbol);
                     i++;
                     continue;
                 }
-                const matchRecord = this.pullMatchRecord(matchSequence);
+                let matchType = "-"; // TODO: all "seq" matches now but will want to have OR matches too...
+                const matchRecord = this.pullMatchRecord(matchSequence, matchType);
                 if (matchRecord.fires()) {
                     let originalSequence = matchRecord.getOriginalSequence();
                     if (MetaGram.sequencesOverlap(originalSequence, matchSequence)) {
@@ -283,7 +285,7 @@ class MetaGram {
 function main() {
 	//let dataFile = "nmw.txt";
 	//let dataFile = "../data/sense_sents.txt";
-	let dataFile = "../data/sense_sents_500.txt";
+	let dataFile = "../data/basic.txt";
 	const mg = new MetaGram(dataFile, "X Y X; X Y;", "\n");
 	mg.run();
 	console.log("---- GENERATED SENTENCES ----");
