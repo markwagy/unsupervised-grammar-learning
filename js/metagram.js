@@ -165,20 +165,30 @@ class MetaGram {
 		console.log("--- Match Record Aggregates ---");
 		let keys = Object.keys(keyAggregates);
 		for (let k of keys) {
-			console.log(`${k} : ${keyAggregates[k]}`);
+			console.log(`${k} : ${keyAggregates[k].count}`);
 		}
 	}
 
 	aggregateMatches() {
 		// ignore overlaps for now...
 		let keyAggregates = {};
+		// need to combine both the sequence that was matched and the pattern to dedupe on
+		// since the same sequence could be matched with different patterns with different behavior (e.g. "X Y;" and "X $;")
+		let combinedKey = (mrKey, pattern) => {
+			return mrKey + ":" + pattern;
+		};
 		this.matchRecords.forEach(mr => {
-			if (Object.keys(keyAggregates).indexOf(mr.key) < 0) {
-				keyAggregates[mr.key] = 1
+			let k = combinedKey(mr.key, mr.matcher.patternString);
+			if (Object.keys(keyAggregates).indexOf(k) < 0) {
+				keyAggregates[k] = {};
+				keyAggregates[k].count = 1;
+				keyAggregates[k].matcher = mr.matcher;
+				keyAggregates[k].sequence = mr.sequence;
 			} else {
-				keyAggregates[mr.key]++;
+				keyAggregates[k].count++;
 			}
 		});
+
 		return keyAggregates;
 	}
 
