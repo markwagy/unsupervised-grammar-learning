@@ -162,11 +162,9 @@ class MetaGram {
 	}
 
 	printAggregates(keyAggregates) {
-		console.log("--- Match Record Aggregates ---");
-		let keys = Object.keys(keyAggregates);
-		for (let k of keys) {
-			console.log(`${k} : ${keyAggregates[k].count}`);
-		}
+		keyAggregates.forEach( k => {
+			console.log(`${k.key} : ${k.count}`);
+		});
 	}
 
 	aggregateMatches() {
@@ -188,8 +186,12 @@ class MetaGram {
 				keyAggregates[k].count++;
 			}
 		});
-
-		return keyAggregates;
+        let aggArr = Object.keys(keyAggregates).reduce( (p, c) => {
+        	keyAggregates[c].key = c;
+            p.push(keyAggregates[c]);
+            return p;
+        }, []);
+		return aggArr;
 	}
 
 	/*****
@@ -222,6 +224,22 @@ class MetaGram {
 		return !this.nextGrammar.equals(this.currentGrammar);
 	}
 
+	collectFireSequences(aggMatches) {
+		return aggMatches.filter(am => {
+			return am.count >= am.matcher.fireThreshold;
+		}).sort( (a, b) => {
+			return b.count - a.count;
+		});
+	}
+
+	collectWildcardSequences(aggMatches) {
+		return aggMatches.filter(am => {
+			return am.count >= am.matcher.wildcardThreshold;
+		}).sort( (a, b) => {
+			return b.count - a.count;
+		});
+	}
+
 	run(maxIters=1000) {
 		let grammarIteration = 1;
 		let grammarChanged = true;
@@ -230,21 +248,30 @@ class MetaGram {
 			this.collectMatches();
 			this.printMatchRecords();
 			let aggregatedMatches = this.aggregateMatches();
+            console.log("--- Match Record Aggregates ---");
 			this.printAggregates(aggregatedMatches);
-			/*
-            this.buildNextGrammar();
-            grammarChanged = this.grammarChanged();
-            this.report();
-            this.swapGrammars();
-            this.writeGrammar(`metagram_grammar_${grammarIteration}.json`);
-            this.writeMatchRecords(`metagram_matchrecords_${grammarIteration}.json`);
-            this.resetMatchRecords();
-            */
+			let fires = this.collectFireSequences(aggregatedMatches);
+			console.log("--- Sequence Fires --- ");
+			this.printAggregates(fires);
+			let wilds = this.collectWildcardSequences(aggregatedMatches);
+			console.log("--- Wildcard Fires");
+			this.printAggregates(wilds);
+			this.handleSequenceFires(fires);
+			//this.handleWildcardFires(wilds);
+			//this.updateGrammar();
 			break; // TODO: temporary
             grammarIteration++;
         }
 		this.writeGrammar();
 		MetaGram.writeInfo({numIters: grammarIteration});
+	}
+
+	handleSequenceFires(seqFires) {
+
+	}
+
+	handleWildcardFires(wcFires) {
+		// TODO
 	}
 
 	static writeInfo(infoObj, filename="info.json") {
@@ -275,7 +302,7 @@ function main() {
 	//let dataFile = "nmw.txt";
 	//let dataFile = "../data/sense_sents.txt";
 	let dataFile = "../data/basic.txt";
-	const mg = new MetaGram(dataFile, "1, 2, X Y X; 3, 4, X Y;", "\n");
+	const mg = new MetaGram(dataFile, "2, 20, X Y X; 30, 2, X Y;", "\n");
 	mg.run();
 	console.log("---- GENERATED SENTENCES ----");
 	mg.generate();
