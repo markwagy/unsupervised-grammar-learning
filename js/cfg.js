@@ -49,6 +49,7 @@ class Rule {
     constructor(lhsval, rhsval) {
         this.lhs = lhsval;
         this.rhs = rhsval;
+        this.uid = Rule.getUID();
     }
 
     toString() {
@@ -56,12 +57,53 @@ class Rule {
         return `${this.lhs} -> ${rhsvals}`;
     }
 
+    static getUID() {
+        Rule.num++;
+        return "_" + Rule.num + "_";
+    }
+
+}
+Rule.num = 0;
+
+
+class GrammarCoords {
+
+    constructor(ruleId, startIdx, endIdx) {
+        this.ruleId = ruleId;
+        this.startIdx = startIdx;
+        this.endIdx = endIdx;
+    }
+
+    toString() {
+        return `${this.ruleId}(${this.startIdx},${this.endIdx})`;
+    }
+
+    static overlap(gc1, gc2) {
+        if (gc1.ruleId !== gc2.ruleId) {
+            // they can't overlap if they aren't in the same rule
+            return false;
+        }
+        let start1 = gc1.startIdx,
+            start2 = gc2.startIdx;
+        let end1 = gc1.endIdx,
+            end2 = gc2.endIdx;
+        let overlaps1 = start1 >= start2 && start1 <= end2 || end1 >= start2 && end1 <= end2;
+        let overlaps2 = start2 >= start1 && start2 <= end1 || end2 >= start1 && end2 <= end1;
+        return overlaps1 || overlaps2;
+    }
 }
 
 class CFG {
 
     constructor() {
         this.rules = [];
+    }
+
+    getByCoords(ruleID, startIdx, endIdx) {
+        let rule = this.rules.filter(r => {
+            return r.uid === ruleID;
+        })[0];
+        return rule.lhs.slice(startIdx, endIdx+1);
     }
 
     toString() {
@@ -246,4 +288,5 @@ function main() {
 module.exports.CFG = CFG;
 module.exports.Symbol = Symbol;
 module.exports.Rule = Rule;
+module.exports.GrammarCoords = GrammarCoords;
 
