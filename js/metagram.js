@@ -17,11 +17,11 @@ const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 class MatchRecord {
 
-	constructor(pattern, sequence, grammarCoordinate) {
+	constructor(matcher, sequence, grammarCoordinate) {
 		this.key = MatchRecord.getKey(sequence);
 		this.sequence = sequence;
 		this.grammarCoord = grammarCoordinate;
-		this.pattern = pattern;
+		this.matcher = matcher;
 		//this.counts = 1;
 		//this.uid = null;
 		//this.hasFiredBefore = false;
@@ -30,7 +30,7 @@ class MatchRecord {
 	}
 
 	toString() {
-		return `${this.key}\t|\t${this.sequence}\t|\t${this.pattern}\t|\t${this.grammarCoord}`;
+		return `${this.key}\t|\t${this.sequence}\t|\t${this.matcher.toString()}\t|\t${this.grammarCoord}`;
 	}
 
 	attachUID() {
@@ -128,7 +128,7 @@ class MetaGram {
                 let matchSeq = m.match(rest);
                 if (matchSeq.length > 0) {
                 	let grammarCoord = new cfg.GrammarCoords(rule.uid, i, i+matchSeq.length);
-                    matchRecords.push(new MatchRecord(m.patternString, matchSeq, grammarCoord));
+                    matchRecords.push(new MatchRecord(m, matchSeq, grammarCoord));
                 }
             }
         });
