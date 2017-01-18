@@ -69,7 +69,7 @@ class MetaGram {
 	constructor(dataFileName, matchProgram, startRulesSplitter="\n") {
 		this.dataFileName = dataFileName;
 		this.currentGrammar = new cfg.CFG();
-		this.nextGrammar = new cfg.CFG();
+		//this.nextGrammar = new cfg.CFG();
 		this.initializeStartRules(startRulesSplitter);
 		this.matchers = matcher.Matcher.getMatchers(matchProgram);
 		this.matchRecords = [];
@@ -267,7 +267,43 @@ class MetaGram {
 	}
 
 	handleSequenceFires(seqFires) {
-
+		seqFires.forEach(seqAgg => {
+			let addedRules = [];
+			let matches = (sequence, ruleSegment) => {
+				if (sequence.length !== ruleSegment.length) {
+					return false;
+				}
+				let m = ruleSegment.every( (x, i) => {
+					let s = x.val === sequence[i];
+					return s;
+				});
+				return m;
+			};
+			this.currentGrammar.rules = this.currentGrammar.rules.map(r => {
+                let newRHS = [];
+				let i=0;
+				while (i<(r.rhs.length)) {
+					let rhsSlice = r.rhs.slice(i, i+(seqAgg.sequence.length));
+					if (matches(seqAgg.sequence, rhsSlice)) {
+						// found match. create new rule and symbol
+						let uid = cfg.Rule.getUID();
+						newRHS.push(new cfg.Symbol(uid, false));
+						addedRules.push(new cfg.Rule(uid, rhsSlice.slice()));
+						i += rhsSlice.length;
+					} else {
+						// no match. keep status quo
+						newRHS.push(r.rhs[i]);
+						i++;
+					}
+				}
+                return new cfg.Rule(r.lhs, newRHS);
+                //this.currentGrammar.replaceRule(r, newRule);
+			});
+			addedRules.forEach(r => {
+				this.currentGrammar.addRule(r.lhs, r.rhs);
+			});
+        });
+		this.currentGrammar.cleanUpRules();
 	}
 
 	handleWildcardFires(wcFires) {
@@ -306,6 +342,8 @@ function main() {
 	mg.run();
 	console.log("---- GENERATED SENTENCES ----");
 	mg.generate();
+	console.log("---- END GRAMMAR ----");
+	console.log(mg.currentGrammar.toString());
 	console.log("---- DONE ---- ");
 }
 

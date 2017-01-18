@@ -62,6 +62,12 @@ class Rule {
         return "_" + Rule.num + "_";
     }
 
+    static equals(r1, r2) {
+        return r1.lhs === r2.lhs && r1.rhs.every( (s, i) => {
+                return s.equals(r2.rhs[i]);
+            });
+    }
+
 }
 Rule.num = 0;
 
@@ -125,6 +131,95 @@ class CFG {
             }
             return this.getNext(x);
         })
+    }
+
+    replaceRule(newRule) {
+        let didReplace = false;
+        let newRules = this.rules.map(r => {
+            if (r.lhs === newRule.lhs) {
+                didReplace = true;
+                return newRule;
+            } else {
+                return r;
+            }
+        });
+        if (!didReplace) {
+            throw "ErrorReplaceRules";
+        }
+        this.rules = newRules;
+    }
+
+    // replace all instances of symOld in RHS's of all rules with symNew
+    replaceAll(symOld, symNew) {
+        this.rules = this.rules.map(r => {
+            r.rhs = r.rhs.map(s => {
+                if (s === symOld) {
+                    return symNew;
+                } else {
+                    return s;
+                }
+            });
+            return r;
+        });
+    }
+
+    removeRule(rule) {
+        this.rules = this.rules.filter(r => {
+            return ! Rule.equals(r, rule);
+        });
+    }
+
+    // remove redundant rules and those with a single symbol on the RHS
+    cleanUpRules() {
+
+        // i.e. those with a single element in their RHS
+        let isTrivial = r => {
+            return r.rhs.length === 1;
+        };
+        // separate out trivial rules and eliminate from grammar
+        let trivialRules = this.rules.filter(r => { return isTrivial(r)});
+        this.rules = this.rules.filter(r => {
+            return !isTrivial(r);
+        });
+        // then replace all trivial rule LHS vals in RHS of valid rules with their RHS
+        trivialRules.forEach(r => {
+            if (r.rhs.length > 1) {
+                throw "NonTrivialRuleReplacement";
+            }
+            this.replaceAll(r.lhs, r.rhs[0]);
+        });
+
+        // remove redundant rules
+        let getRHSKey =  (seq) => {
+            return seq.reduce( (p, c) => {
+                return p + "-" + c.val;
+            }, "");
+        };
+        let ruleDupes = {};
+        this.rules.forEach(r => {
+            let k = getRHSKey(r.rhs);
+            if (Object.keys(ruleDupes).indexOf(k) < 0) {
+                ruleDupes[k] = {};
+                ruleDupes[k].dupes = []; // the list of rules we will replace with the representative
+                ruleDupes[k].rep = r; // the chosen representative rule
+            } else {
+                ruleDupes[k].dupes.push(r);
+            }
+        });
+        // TODO: now process the rule dupes: replace each rule on the dupe list with the representative
+        let dupeArr = Object.keys(ruleDupes).reduce( (p, c) => {
+            if (ruleDupes[c].dupes.length > 0) {
+                p.push(ruleDupes[c]);
+            }
+            return p;
+        }, []);
+        dupeArr.forEach(da => {
+            let rep = da.rep;
+            da.dupes.forEach(d => {
+                this.replaceAll(d.lhs, rep.lhs);
+                this.removeRule(d);
+            });
+        });
     }
 
     match(lhs) {
