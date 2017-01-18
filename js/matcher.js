@@ -30,14 +30,30 @@ function test() {
 class Matcher {
 
     constructor(patternString) {
-        this.patternString = patternString;
+        // form of patternString should be: <fire thresh>, <wild thresh>, <pattern def>
+        let patternObj = this.preprocess(patternString);
+        this.patternString = patternObj.pattern;
+        this.fireThreshold = patternObj.fireThreshold;
+        this.wildcardThreshold= patternObj.wildcardThreshold;
+
         const pegdefstr = fs.readFileSync(PEG_DEF_FILE, "utf-8");
         const pegdef = PEG.generate(pegdefstr);
-        this.parserFuncs = eval(pegdef.parse(patternString).funcstr);
+        this.parserFuncs = eval(pegdef.parse(this.patternString).funcstr);
     }
 
     toString() {
-        return patternString;
+        return `[fire: ${this.fireThreshold}, wild: ${this.wildcardThreshold}, pattern: ${this.patternString}]`;
+    }
+
+    preprocess(patterndef) {
+        let sections = patterndef.split(Matcher.PREPROCESSOR_CHAR);
+        if (sections.length !== 3) {
+            throw "PatternStringError";
+        }
+        let fireThreshold = Number(sections[0].trim());
+        let wildcardThreshold = Number(sections[1].trim());
+        let patternString = sections[2].trim();
+        return {fireThreshold: fireThreshold, wildcardThreshold: wildcardThreshold, pattern: patternString};
     }
 
     match(patternArray) {
@@ -53,9 +69,10 @@ class Matcher {
 
 }
 Matcher.WILD = "$";
+Matcher.PREPROCESSOR_CHAR = ",";
 
 function test1() {
-    const matcher = new Matcher("$ Y X $");
+    const matcher = new Matcher("1, 2, X $ X");
     log(matcher.match([1, 1]));
     log(matcher.match([1, 2]));
     log(matcher.match([3, 2, 1, 3]));

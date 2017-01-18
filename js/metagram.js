@@ -1,7 +1,5 @@
 /* MetaGrammar code */
 
-//const redis = require('redis'),
-//	  client = redis.createClient();
 const md5 = require('md5');
 const fs = require('fs');
 const matcher = require('./matcher.js');
@@ -19,35 +17,31 @@ const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 class MatchRecord {
 
-	constructor(sequence, matchType="-") {
+	constructor(pattern, sequence, grammarCoordinate) {
 		this.key = MatchRecord.getKey(sequence);
-		this.counts = 1;
-		this.uid = null;
-		this.hasFiredBefore = false;
-		this.originalSequence = sequence;
-		this.matchType = matchType; // can be - or | for "sequence" or "or"
+		this.sequence = sequence;
+		this.grammarCoord = grammarCoordinate;
+		this.pattern = pattern;
+		//this.counts = 1;
+		//this.uid = null;
+		//this.hasFiredBefore = false;
+		//this.originalSequence = sequence;
+		//this.matchType = matchType; // can be - or | for "sequence" or "or"
 	}
 
-	fires() {
-		return this.counts > 1;
+	toString() {
+		return `${this.key}\t|\t${this.sequence}\t|\t${this.pattern}\t|\t${this.grammarCoord}`;
 	}
-
-	incrementCount() {
-		this.counts++;
-	}
-
-	getOriginalSequence() {
-	    return this.originalSequence;
-    }
 
 	attachUID() {
 		this.uid = MatchRecord.UID;
 		this.hasFiredBefore = true;
 	}
 
-	static getKey(sequence, matchType) {
+	static getKey(sequence) {
+		let keySep = "-";
 		return sequence.reduce( (p, c) => {
-			return p + matchType + c;
+			return p + keySep + c;
 		});
 	}
 
@@ -59,6 +53,10 @@ class MatchRecord {
 		let rtn = LETTERS[MatchRecord.charIdx] + MatchRecord.num;
 		MatchRecord.charIdx++;
 		return rtn;
+	}
+
+	static overlap(mr1, mr2) {
+		return GrammarCoord.overlap(mr1.grammarCoord, mr2.grammarCoord);
 	}
 
 }
@@ -75,20 +73,6 @@ class MetaGram {
 		this.initializeStartRules(startRulesSplitter);
 		this.matchers = matcher.Matcher.getMatchers(matchProgram);
 		this.matchRecords = [];
-	}
-
-	pullMatchRecord(sequence, matchType) {
-		const mrKey = MatchRecord.getKey(sequence, matchType);
-		const matchedRecords = this.matchRecords.filter( (mr) => {
-                return mr.key === mrKey;
-            });
-		let match = matchedRecords.length === 0 ? new MatchRecord(sequence, matchType) : matchedRecords[0];
-		if (matchedRecords.length === 0) {
-			this.matchRecords.push(match);
-		} else {
-			matchedRecords[0].incrementCount();
-		}
-		return match;
 	}
 
 	initializeStartRules(startRulesSplitter) {
@@ -120,82 +104,6 @@ class MetaGram {
         return matchSym;
 	}
 
-	getExistingRuleMatches(sequence) {
-        // get all rules for which this sequence fully matches the RHS
-		return this.currentGrammar.rules.filter( (r) => {
-            // ensure it doesn't match the start rule
-			if (r.lhs === cfg.CFG.START_SYMBOL) {
-				return false;
-			}
-			return r.rhs.slice(0, sequence.length).map( (s, i) => {
-				return s.equals(sequence[i]);
-			}).every( (x) => { return x; });
-		});
-	}
-
-	static sequencesOverlap(seq1, seq2) {
-	    let getids = (x) => { return x.uid; };
-	    let seq2ids = seq2.map(getids);
-	    let seq1ids = seq1.map(getids);
-	    return seq1ids.some( (uid) => {
-	        return seq2ids.indexOf(uid) >= 0;
-        });
-    }
-
-	getUpdatedRHS(rhs) {
-		let newRHS = [];
-		let i = 0;
-        while (i < rhs.length) {
-            const currRHS = rhs.slice(i);
-            // TODO: test check for match on existing rule RHS values here
-			let existingRuleMatches = this.getExistingRuleMatches(currRHS);
-            if (existingRuleMatches.length === 0) {
-                const matchSequence = this.matchers.map(m => {
-                	return m.match(currRHS);
-				}).filter(m => {
-					return m.length > 0;
-				}).sort( (a, b) => {
-					return a.length > b.length;
-				})[0];
-                if (matchSequence.length === 0) {
-                    let symbol = rhs[i].clone();
-                    newRHS.push(symbol);
-                    i++;
-                    continue;
-                }
-                let matchType = "-"; // TODO: all "seq" matches now but will want to have OR matches too...
-                const matchRecord = this.pullMatchRecord(matchSequence, matchType);
-                if (matchRecord.fires()) {
-                    let originalSequence = matchRecord.getOriginalSequence();
-                    if (MetaGram.sequencesOverlap(originalSequence, matchSequence)) {
-                        newRHS.push(rhs[i].clone());
-                        i++;
-                        continue;
-                    }
-                    let hasFired = matchRecord.hasFiredBefore;
-                    let addNewRule = !hasFired;
-                    let newSym = addNewRule ? this.addNewRuleToNextGrammar(matchRecord, matchSequence, currRHS) : new cfg.Symbol(matchRecord.uid, false);
-                    newRHS.push(newSym);
-                    i += matchSequence.length;
-                } else {
-                    let symbol = rhs[i].clone();
-                    newRHS.push(symbol);
-                    i++;
-                }
-            } else {
-            	// ASSUMPTION: we want to just use the first rule matched
-            	let ruleWinner = existingRuleMatches[0];
-            	newRHS.push(new cfg.Symbol(ruleWinner.lhs, false));
-            	i += ruleWinner.rhs.length;
-			}
-        }
-        if (newRHS.length === 1) {
-        	// we don't want to create new rules with just one element in them
-        	return rhs;
-		}
-        return newRHS;
-    }
-
     resetMatchRecords() {
 		this.matchRecords = [];
 	}
@@ -204,6 +112,79 @@ class MetaGram {
 		this.currentGrammar = this.nextGrammar.clone();
 		this.nextGrammar = new cfg.CFG();
 	}
+
+	/*****
+	begin new section
+	 *****/
+
+	findMatches(rule) {
+        let matchRecords = [];
+        let seq = rule.rhs.map(x => {
+            return x.val;
+        });
+        this.matchers.forEach(m => {
+            for (let i = 0; i < seq.length; i++) {
+            	let rest = seq.slice(i);
+                let matchSeq = m.match(rest);
+                if (matchSeq.length > 0) {
+                	let grammarCoord = new cfg.GrammarCoords(rule.uid, i, i+matchSeq.length);
+                    matchRecords.push(new MatchRecord(m.patternString, matchSeq, grammarCoord));
+                }
+            }
+        });
+        return matchRecords;
+    }
+
+	storeMatches(matchrecs) {
+		matchrecs.forEach(mr => { this.matchRecords.push(mr); });
+		/*
+		matchrecs.forEach(mr => {
+			let k = `${mr.grammarCoord.toString()}@${mr.key}@`;
+            client.hset(k, "coord", mr.grammarCoord, redis.print);
+            client.hset(k, "pattern", mr.pattern, redis.print);
+            client.hset(k, "sequence", mr.sequence, redis.print);
+		});
+		*/
+	}
+
+	collectMatches() {
+		this.currentGrammar.rules.forEach(r => {
+			let matchrecs = this.findMatches(r);
+			this.storeMatches(matchrecs);
+		});
+	}
+
+	printMatchRecords() {
+		console.log("--- Match Records ---");
+		this.matchRecords.sort( (a, b) => {
+			return a.key.length - b.key.length || a.key.localeCompare(b.key);
+		}).forEach(mr =>  { console.log(mr.toString()); });
+	}
+
+	printAggregates(keyAggregates) {
+		console.log("--- Match Record Aggregates ---");
+		let keys = Object.keys(keyAggregates);
+		for (let k of keys) {
+			console.log(`${k} : ${keyAggregates[k]}`);
+		}
+	}
+
+	aggregateMatches() {
+		// ignore overlaps for now...
+		let keyAggregates = {};
+		this.matchRecords.forEach(mr => {
+			if (Object.keys(keyAggregates).indexOf(mr.key) < 0) {
+				keyAggregates[mr.key] = 1
+			} else {
+				keyAggregates[mr.key]++;
+			}
+		});
+		return keyAggregates;
+	}
+
+	/*****
+	end new section
+	 *****/
 
 	buildNextGrammar() {
         this.currentGrammar.rules.forEach( (r) => {
@@ -231,27 +212,25 @@ class MetaGram {
 		return !this.nextGrammar.equals(this.currentGrammar);
 	}
 
-	generalizeMatchRecords() {
-		// find commonalities in match records to generalize for inference
-	}
-
-	postProcess() {
-		this.generalizeMatchRecords();
-	}
-
 	run(maxIters=1000) {
 		let grammarIteration = 1;
 		let grammarChanged = true;
 		while(grammarChanged && grammarIteration<maxIters) {
 			console.log("------ Grammar iteration " + grammarIteration + " ------\n");
+			this.collectMatches();
+			this.printMatchRecords();
+			let aggregatedMatches = this.aggregateMatches();
+			this.printAggregates(aggregatedMatches);
+			/*
             this.buildNextGrammar();
-            this.postProcess();
             grammarChanged = this.grammarChanged();
             this.report();
             this.swapGrammars();
             this.writeGrammar(`metagram_grammar_${grammarIteration}.json`);
             this.writeMatchRecords(`metagram_matchrecords_${grammarIteration}.json`);
             this.resetMatchRecords();
+            */
+			break; // TODO: temporary
             grammarIteration++;
         }
 		this.writeGrammar();
@@ -286,7 +265,7 @@ function main() {
 	//let dataFile = "nmw.txt";
 	//let dataFile = "../data/sense_sents.txt";
 	let dataFile = "../data/basic.txt";
-	const mg = new MetaGram(dataFile, "X Y X; X Y;", "\n");
+	const mg = new MetaGram(dataFile, "1, 2, X Y X; 3, 4, X Y;", "\n");
 	mg.run();
 	console.log("---- GENERATED SENTENCES ----");
 	mg.generate();
