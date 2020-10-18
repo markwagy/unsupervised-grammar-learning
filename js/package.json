@@ -6,7 +6,8 @@
   "dependencies": {
     "md5": "^2.2.1",
     "pegjs": "^0.10.0",
-    "redis": "^2.6.3"
+    "redis": "^2.6.3",
+    "segfault-handler": "^1.0.0"
   },
   "devDependencies": {
     "gulp": "^3.9.1",

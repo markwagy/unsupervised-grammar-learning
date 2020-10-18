@@ -39,6 +39,14 @@ class Symbol {
         return this.val == other.val;
     }
 
+    static isTerminalSym(val) {
+        // non-terminal is defined by underscores surrounding the symbol
+        let trimval = val.trim();
+        let spl = trimval.split("");
+        return  !(spl[0] === "_" && spl[spl.length-1] === "_");
+    }
+
+
 }
 
 Symbol._uid = 0;
@@ -172,7 +180,8 @@ class CFG {
     // remove redundant rules and those with a single symbol on the RHS
     cleanUpRules() {
 
-        // i.e. those with a single element in their RHS
+        // i.e. those with a single element in their RHS. UPDATE: this is the way we have OR rules... so not removing them
+        /*
         let isTrivial = r => {
             return r.rhs.length === 1;
         };
@@ -188,6 +197,7 @@ class CFG {
             }
             this.replaceAll(r.lhs, r.rhs[0]);
         });
+        */
 
         // remove redundant rules
         let getRHSKey =  (seq) => {

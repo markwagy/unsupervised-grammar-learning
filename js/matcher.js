@@ -73,7 +73,7 @@ Matcher.PREPROCESSOR_CHAR = ",";
 
 function test1() {
     const matcher = new Matcher("1, 2, X $ X");
-    log(matcher.match([1, 1]));
+    log(mat1cher.match([1, ]));
     log(matcher.match([1, 2]));
     log(matcher.match([3, 2, 1, 3]));
     log(matcher.match([1, 2, 1, 2]));

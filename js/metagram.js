@@ -5,6 +5,10 @@ const fs = require('fs');
 const matcher = require('./matcher.js');
 const cfg = require("./cfg.js");
 
+const SegfaultHandler = require('segfault-handler');
+
+SegfaultHandler.registerHandler("crash.log"); // With no argument, SegfaultHandler will generate a generic log file name
+
 /*
 const redis = require('redis'), client = redis.createClient();
 
@@ -113,10 +117,6 @@ class MetaGram {
 		this.nextGrammar = new cfg.CFG();
 	}
 
-	/*****
-	begin new section
-	 *****/
-
 	findMatches(rule) {
         let matchRecords = [];
         let seq = rule.rhs.map(x => {
@@ -194,10 +194,6 @@ class MetaGram {
 		return aggArr;
 	}
 
-	/*****
-	end new section
-	 *****/
-
 	buildNextGrammar() {
         this.currentGrammar.rules.forEach( (r) => {
             const updatedRHS = this.getUpdatedRHS(r.rhs);
@@ -240,74 +236,125 @@ class MetaGram {
 		});
 	}
 
-	run(maxIters=1000) {
-		let grammarIteration = 1;
-		let grammarChanged = true;
-		while(grammarChanged && grammarIteration<maxIters) {
-			console.log("------ Grammar iteration " + grammarIteration + " ------\n");
-			this.collectMatches();
-			this.printMatchRecords();
-			let aggregatedMatches = this.aggregateMatches();
+	run(maxIters=10) {
+        let grammarIteration = 1;
+        let grammarChanged = true;
+        while (grammarChanged && grammarIteration < maxIters) {
+            console.log("------ Grammar iteration " + grammarIteration + " ------\n");
+            this.collectMatches();
+            this.printMatchRecords();
+            let aggregatedMatches = this.aggregateMatches();
             console.log("--- Match Record Aggregates ---");
-			this.printAggregates(aggregatedMatches);
-			let fires = this.collectFireSequences(aggregatedMatches);
-			console.log("--- Sequence Fires --- ");
-			this.printAggregates(fires);
-			let wilds = this.collectWildcardSequences(aggregatedMatches);
-			console.log("--- Wildcard Fires");
-			this.printAggregates(wilds);
-			this.handleSequenceFires(fires);
-			//this.handleWildcardFires(wilds);
-			//this.updateGrammar();
-			break; // TODO: temporary
+            this.printAggregates(aggregatedMatches);
+            let fires = this.collectFireSequences(aggregatedMatches);
+            console.log("--- Sequence Fires --- ");
+            this.printAggregates(fires);
+            let wilds = this.collectWildcardSequences(aggregatedMatches);
+            console.log("--- Wildcard Fires");
+            this.printAggregates(wilds);
+            this.handleSequenceFires(fires);
+            this.handleWildcardFires(wilds);
+            //this.updateGrammar();
+            //break; // TODO: temporary
             grammarIteration++;
         }
-		this.writeGrammar();
-		MetaGram.writeInfo({numIters: grammarIteration});
+        this.writeGrammar();
+        MetaGram.writeInfo({numIters: grammarIteration});
+    }
+
+	updateRulesFromSequenceAggregate(seqAgg, checkForWilds) {
+        let addedRules = [];
+        let matches = (sequence, ruleSegment) => {
+            if (sequence.length !== ruleSegment.length) {
+                return false;
+            }
+            let m = ruleSegment.every( (x, i) => {
+                let s = x.val === sequence[i];
+                return s;
+            });
+            return m;
+        };
+        this.currentGrammar.rules = this.currentGrammar.rules.map(r => {
+            let newRHS = [];
+            let i=0;
+            while (i<(r.rhs.length)) {
+                let rhsSlice = r.rhs.slice(i, i+(seqAgg.sequence.length));
+                if (matches(seqAgg.sequence, rhsSlice)) {
+                    // found match. create new rule and symbol
+                    let uid = cfg.Rule.getUID();
+                    newRHS.push(new cfg.Symbol(uid, false));
+                    addedRules.push(new cfg.Rule(uid, rhsSlice.slice()));
+                    i += rhsSlice.length;
+                } else {
+                    // no match. keep status quo
+                    newRHS.push(r.rhs[i]);
+                    i++;
+                }
+            }
+            return new cfg.Rule(r.lhs, newRHS);
+            //this.currentGrammar.replaceRule(r, newRule);
+        });
+        addedRules.forEach(r => {
+            this.currentGrammar.addRule(r.lhs, r.rhs);
+        });
 	}
 
 	handleSequenceFires(seqFires) {
 		seqFires.forEach(seqAgg => {
-			let addedRules = [];
-			let matches = (sequence, ruleSegment) => {
-				if (sequence.length !== ruleSegment.length) {
-					return false;
-				}
-				let m = ruleSegment.every( (x, i) => {
-					let s = x.val === sequence[i];
-					return s;
-				});
-				return m;
-			};
-			this.currentGrammar.rules = this.currentGrammar.rules.map(r => {
-                let newRHS = [];
-				let i=0;
-				while (i<(r.rhs.length)) {
-					let rhsSlice = r.rhs.slice(i, i+(seqAgg.sequence.length));
-					if (matches(seqAgg.sequence, rhsSlice)) {
-						// found match. create new rule and symbol
-						let uid = cfg.Rule.getUID();
-						newRHS.push(new cfg.Symbol(uid, false));
-						addedRules.push(new cfg.Rule(uid, rhsSlice.slice()));
-						i += rhsSlice.length;
-					} else {
-						// no match. keep status quo
-						newRHS.push(r.rhs[i]);
-						i++;
-					}
-				}
-                return new cfg.Rule(r.lhs, newRHS);
-                //this.currentGrammar.replaceRule(r, newRule);
-			});
-			addedRules.forEach(r => {
-				this.currentGrammar.addRule(r.lhs, r.rhs);
-			});
+			let checkForWilds = false;
+            this.updateRulesFromSequenceAggregate(seqAgg, checkForWilds);
         });
 		this.currentGrammar.cleanUpRules();
 	}
 
 	handleWildcardFires(wcFires) {
-		// TODO
+
+		// aggregate wildcard fires by match expression because we want to create new "or"
+		// rules for wildcard values between them
+		let wcAggs = {};
+
+		wcFires.forEach(wc => {
+			let pattString = wc.matcher.patternString;
+			if (Object.keys(wcAggs).indexOf(pattString) < 0) {
+				wcAggs[pattString] = [wc.sequence];
+			} else {
+				wcAggs[pattString].push(wc.sequence);
+			}
+		});
+
+		let addedRules = [];
+		// now filter out wcAggs to only include those patterns with wildcards in them for further processing
+		let wcAggsFilt = Object.keys(wcAggs).filter(wcKey => {
+			return (new RegExp(`${matcher.Matcher.WILD}`)).test(wcKey)
+		}).forEach(wcKey => {
+            // get those sequences that match the current wildcard agg key
+            let seqs = wcAggs[wcKey];
+            // TODO: only returns the first match. prob want other as well
+            let wildcardIdxs = wcKey.trim()
+                .split(" ")
+                .map((x, i) => {
+                    return x === "$" ? i : -1;
+                })
+                .filter(x => {
+                    return x > 0;
+                });
+            // making an "OR" relation by assigning the same rule LHS for all elements matched
+            let uid = cfg.Rule.getUID();
+            wildcardIdxs.forEach(idx => {
+                seqs.forEach(seq => {
+                	let val = seq[idx];
+                    let isTerminal = cfg.Symbol.isTerminalSym(val);
+                	let rhs = [new cfg.Symbol(val, isTerminal)];
+                	// TODO isTerminal (?)
+
+                    addedRules.push(new cfg.Rule(uid, rhs));
+                });
+            })
+
+        });
+        addedRules.forEach(r => {
+            this.currentGrammar.addRule(r.lhs, r.rhs);
+        });
 	}
 
 	static writeInfo(infoObj, filename="info.json") {
@@ -338,7 +385,7 @@ function main() {
 	//let dataFile = "nmw.txt";
 	//let dataFile = "../data/sense_sents.txt";
 	let dataFile = "../data/basic.txt";
-	const mg = new MetaGram(dataFile, "2, 20, X Y X; 30, 2, X Y;", "\n");
+	const mg = new MetaGram(dataFile, "2, 20, X Y X; 30, 2, X $;", "\n");
 	mg.run();
 	console.log("---- GENERATED SENTENCES ----");
 	mg.generate();
